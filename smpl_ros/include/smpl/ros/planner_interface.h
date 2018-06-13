@@ -61,6 +61,8 @@
 #include <smpl/graph/robot_planning_space.h>
 #include <smpl/heuristic/robot_heuristic.h>
 
+#include <smpl/ros/zero_time_planner.h>
+
 SBPL_CLASS_FORWARD(SBPLPlanner);
 
 namespace sbpl {
@@ -96,6 +98,12 @@ public:
         const moveit_msgs::PlanningScene& planning_scene,
         const moveit_msgs::MotionPlanRequest& req,
         moveit_msgs::MotionPlanResponse& res);
+
+    bool solveZero(
+        const moveit_msgs::PlanningScene& planning_scene,
+        const moveit_msgs::MotionPlanRequest& req,
+        moveit_msgs::MotionPlanResponse& res,
+        bool query = false);
 
     static
     bool SupportsGoalConstraints(
@@ -141,6 +149,21 @@ public:
         -> std::vector<visual::Marker>;
     ///@}
 
+    /// \fill start state and goal constraints
+    ///@{
+    bool fillStartState(
+        const moveit_msgs::RobotState& state,
+        RobotState& start_state);
+
+    bool fillGoalConfigurationConstraint(
+        const moveit_msgs::Constraints& goal_constraints,
+        GoalConstraint& goal);
+
+    bool fillGoalPositionConstraint(
+        const moveit_msgs::Constraints& goal_constraints,
+        GoalConstraint& goal);
+    ///@}
+
 protected:
 
     RobotModel* m_robot;
@@ -163,6 +186,7 @@ protected:
     std::unique_ptr<RobotPlanningSpace> m_pspace;
     std::map<std::string, std::unique_ptr<RobotHeuristic>> m_heuristics;
     std::unique_ptr<SBPLPlanner> m_planner;
+    std::unique_ptr<ZeroTimePlanner> m_zero_planner;
 
     int m_sol_cost;
 

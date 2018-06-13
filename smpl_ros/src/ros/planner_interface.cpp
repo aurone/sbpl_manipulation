@@ -61,17 +61,20 @@
 #include <smpl/graph/manip_lattice.h>
 #include <smpl/graph/manip_lattice_action_space.h>
 #include <smpl/graph/workspace_lattice.h>
+#include <smpl/graph/workspace_lattice_zero.h>
 #include <smpl/graph/manip_lattice_egraph.h>
 
 #include <smpl/heuristic/bfs_heuristic.h>
 #include <smpl/heuristic/egraph_bfs_heuristic.h>
 #include <smpl/heuristic/euclid_dist_heuristic.h>
+#include <smpl/heuristic/workspace_dist_heuristic.h>
 #include <smpl/heuristic/multi_frame_bfs_heuristic.h>
 #include <smpl/heuristic/joint_dist_heuristic.h>
 #include <smpl/heuristic/generic_egraph_heuristic.h>
 
 #include <smpl/search/adaptive_planner.h>
 #include <smpl/search/arastar.h>
+#include <smpl/search/arastar_zero.h>
 #include <smpl/search/experience_graph_planner.h>
 #include <smpl/search/awastar.h>
 
@@ -349,20 +352,55 @@ auto MakeWorkspaceLattice(
     wsp.res_x = grid->resolution();
     wsp.res_y = grid->resolution();
     wsp.res_z = grid->resolution();
-    wsp.R_count = 360;
-    wsp.P_count = 180 + 1;
-    wsp.Y_count = 360;
+    wsp.R_count = 72;
+    wsp.P_count = 36 + 1;
+    wsp.Y_count = 72;
 
     auto* rmi = robot->getExtension<RedundantManipulatorInterface>();
     if (!rmi) {
         ROS_WARN("Workspace Lattice requires Redundant Manipulator Interface");
         return nullptr;
     }
-    wsp.free_angle_res.resize(rmi->redundantVariableCount(), angles::to_radians(1.0));
+    wsp.free_angle_res.resize(rmi->redundantVariableCount(), angles::to_radians(5.0));
 
     auto space = make_unique<WorkspaceLattice>();
     if (!space->init(robot, checker, params, wsp)) {
         ROS_ERROR("Failed to initialize Workspace Lattice");
+        return nullptr;
+    }
+
+    space->setVisualizationFrameId(grid->getReferenceFrame());
+
+    return std::move(space);
+}
+
+auto MakeWorkspaceLatticeZero(
+    const OccupancyGrid* grid,
+    RobotModel* robot,
+    CollisionChecker* checker,
+    PlanningParams* params)
+    -> std::unique_ptr<RobotPlanningSpace>
+{
+    ROS_INFO_NAMED(PI_LOGGER, "Initialize Workspace Lattice Zero");
+
+    WorkspaceLatticeBase::Params wsp;
+    wsp.res_x = grid->resolution();
+    wsp.res_y = grid->resolution();
+    wsp.res_z = grid->resolution();
+    wsp.R_count = 72;
+    wsp.P_count = 36 + 1;
+    wsp.Y_count = 72;
+
+    auto* rmi = robot->getExtension<RedundantManipulatorInterface>();
+    if (!rmi) {
+        ROS_WARN("Workspace Lattice Zero requires Redundant Manipulator Interface");
+        return nullptr;
+    }
+    wsp.free_angle_res.resize(rmi->redundantVariableCount(), angles::to_radians(5.0));
+
+    auto space = make_unique<WorkspaceLatticeZero>();
+    if (!space->init(robot, checker, params, wsp)) {
+        ROS_ERROR("Failed to initialize Workspace Lattice Zero");
         return nullptr;
     }
 
@@ -457,6 +495,32 @@ auto MakeEuclidDistHeuristic(
     return std::move(h);
 };
 
+auto MakeWorkspaceDistHeuristic(
+    RobotPlanningSpace* space,
+    const PlanningParams& params)
+    -> std::unique_ptr<RobotHeuristic>
+{
+    auto h = make_unique<WorkspaceDistHeuristic>();
+
+    if (!h->init(space)) {
+        return nullptr;
+    }
+
+    double wx, wy, wz, wr, wfa;
+    params.param("x_coeff", wx, 1.0);
+    params.param("y_coeff", wy, 1.0);
+    params.param("z_coeff", wz, 1.0);
+    params.param("rot_coeff", wr, 1.0);
+    params.param("fa_coeff", wfa, 1.0);
+
+    h->setWeightX(wx);
+    h->setWeightY(wy);
+    h->setWeightZ(wz);
+    h->setWeightRot(wr);
+    h->setWeightFreeAngles(wfa);
+    return std::move(h);
+};
+
 auto MakeJointDistHeuristic(RobotPlanningSpace* space)
     -> std::unique_ptr<RobotHeuristic>
 {
@@ -509,6 +573,53 @@ auto MakeARAStar(RobotPlanningSpace* space, RobotHeuristic* heuristic)
 {
     const bool forward_search = true;
     auto search = make_unique<ARAStar>(space, heuristic);
+
+    double epsilon;
+    space->params()->param("epsilon", epsilon, 1.0);
+    search->set_initialsolution_eps(epsilon);
+
+    bool search_mode;
+    space->params()->param("search_mode", search_mode, false);
+    search->set_search_mode(search_mode);
+
+    bool allow_partial_solutions;
+    if (space->params()->getParam("allow_partial_solutions", allow_partial_solutions)) {
+        search->allowPartialSolutions(allow_partial_solutions);
+    }
+
+    double target_eps;
+    if (space->params()->getParam("target_epsilon", target_eps)) {
+        search->setTargetEpsilon(target_eps);
+    }
+
+    double delta_eps;
+    if (space->params()->getParam("delta_epsilon", delta_eps)) {
+        search->setDeltaEpsilon(delta_eps);
+    }
+
+    bool improve_solution;
+    if (space->params()->getParam("improve_solution", improve_solution)) {
+        search->setImproveSolution(improve_solution);
+    }
+
+    bool bound_expansions;
+    if (space->params()->getParam("bound_expansions", bound_expansions)) {
+        search->setBoundExpansions(bound_expansions);
+    }
+
+    double repair_time;
+    if (space->params()->getParam("repair_time", repair_time)) {
+        search->setAllowedRepairTime(repair_time);
+    }
+
+    return std::move(search);
+}
+
+auto MakeARAStarZero(RobotPlanningSpace* space, RobotHeuristic* heuristic)
+    -> std::unique_ptr<SBPLPlanner>
+{
+    const bool forward_search = true;
+    auto search = make_unique<ARAStarZero>(space, heuristic);
 
     double epsilon;
     space->params()->param("epsilon", epsilon, 1.0);
@@ -703,6 +814,14 @@ PlannerInterface::PlannerInterface(
         return MakeWorkspaceLattice(m_grid, r, c, p);
     };
 
+    m_space_factories["workspace_zero"] = [this](
+        RobotModel* r,
+        CollisionChecker* c,
+        PlanningParams* p)
+    {
+        return MakeWorkspaceLatticeZero(m_grid, r, c, p);
+    };
+
     m_space_factories["adaptive_workspace_lattice"] = [this](
         RobotModel* r,
         CollisionChecker* c,
@@ -727,6 +846,10 @@ PlannerInterface::PlannerInterface(
         return MakeEuclidDistHeuristic(space, m_params);
     };
 
+    m_heuristic_factories["workspace_distance"] = [this](RobotPlanningSpace* space) {
+        return MakeWorkspaceDistHeuristic(space, m_params);
+    };
+
     m_heuristic_factories["joint_distance"] = [this](RobotPlanningSpace* space) {
         return MakeJointDistHeuristic(space);
     };
@@ -744,6 +867,7 @@ PlannerInterface::PlannerInterface(
     /////////////////////////////
 
     m_planner_factories["arastar"] = MakeARAStar;
+    m_planner_factories["arastar_zero"] = MakeARAStarZero;
     m_planner_factories["awastar"] = MakeAWAStar;
     m_planner_factories["mhastar"] = MakeMHAStar;
     m_planner_factories["larastar"] = MakeLARAStar;
@@ -897,6 +1021,167 @@ bool PlannerInterface::solve(
     return true;
 }
 
+bool PlannerInterface::solveZero(
+    // TODO: this planning scene is probably not being used in any meaningful way
+    const moveit_msgs::PlanningScene& planning_scene,
+    const moveit_msgs::MotionPlanRequest& req,
+    moveit_msgs::MotionPlanResponse& res,
+    bool query)
+{
+    ROS_INFO("Solve Zero");
+
+    clearMotionPlanResponse(req, res);
+
+    if (!m_initialized) {
+        res.error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
+        return false;
+    }
+
+    if (!canServiceRequest(req, res)) {
+        return false;
+    }
+
+    m_req = req; // record the last attempted request
+
+    if (req.goal_constraints.empty()) {
+        ROS_WARN_NAMED(PI_LOGGER, "No goal constraints in request!");
+        res.error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+        return true;
+    }
+
+    // make spaces
+    auto psait = m_space_factories.find("manip");
+    auto manip_space = psait->second(m_robot, m_checker, &m_params);
+    if (!manip_space) {
+        ROS_ERROR("Failed to build manip space");
+        return false;
+    }
+
+    psait = m_space_factories.find("workspace_zero");
+    auto task_space = psait->second(m_robot, m_checker, &m_params);
+    if (!task_space) {
+        ROS_ERROR("Failed to build manip space");
+        return false;
+    }
+
+    // make heuristics
+    auto hait = m_heuristic_factories.find("bfs");
+    auto bfs_heuristic = hait->second(manip_space.get());
+    if (!bfs_heuristic) {
+        ROS_ERROR("Failed to build bfs heuristic");
+        return false;
+    }
+
+    hait = m_heuristic_factories.find("workspace_distance");
+    auto jd_heuristic = hait->second(task_space.get());
+    if (!jd_heuristic) {
+        ROS_ERROR("Failed to build wd heuristic");
+        return false;
+    }
+
+    //insert jd heuristic in the robot planning space
+    if (!task_space->insertHeuristic(jd_heuristic.get())) {
+        ROS_ERROR("Could not insert heuristic");
+        return false;
+    }
+
+    // make planners
+    auto pait = m_planner_factories.find("arastar");
+    if (pait == m_planner_factories.end()) {
+        ROS_ERROR("Unrecognized search name arastar");
+        return false;
+    }
+    auto planner1 = pait->second(manip_space.get(), bfs_heuristic.get());
+
+    pait = m_planner_factories.find("arastar_zero");
+    if (pait == m_planner_factories.end()) {
+        ROS_ERROR("Unrecognized search name arastar");
+        return false;
+    }
+    auto planner2 = pait->second(task_space.get(), jd_heuristic.get());
+
+    // fill start and goal
+    RobotState initial_positions;
+    if (!fillStartState(m_req.start_state, initial_positions)) {
+        ROS_ERROR("Failed to fill start state");
+        return false;
+    }
+
+    const auto& goal_constraints_v = req.goal_constraints;
+    assert(!goal_constraints_v.empty());
+    const auto& goal_constraints = goal_constraints_v.front();
+
+    GoalConstraint goal;
+    if (req.goal_constraints.front().position_constraints.size() > 0) {
+        if (!fillGoalPositionConstraint(goal_constraints, goal)) {
+            ROS_ERROR("Failed to fill goal position constraint");
+            return false;
+        }
+    }
+    else if (req.goal_constraints.front().joint_constraints.size() > 0) {
+        if (!fillGoalConfigurationConstraint(goal_constraints, goal)) {
+            ROS_ERROR("Failed to fill goal configuration constraint");
+            return false;
+        }
+    } else {
+        ROS_ERROR("Both position and joint constraints empty!");
+    }
+
+    m_zero_planner.reset(new ZeroTimePlanner(
+        initial_positions,
+        goal,
+        dynamic_cast<ManipLattice*>(manip_space.get()),
+        dynamic_cast<WorkspaceLatticeZero*>(task_space.get()),
+        dynamic_cast<ARAStar*>(planner1.get()),
+        dynamic_cast<ARAStarZero*>(planner2.get())));
+
+    auto then = clock::now();
+
+    std::vector<RobotState> path;
+
+    if (!query) {
+        ROS_INFO("Preprocessing Start Region");
+        m_zero_planner->PreProcess();
+    }
+    else {
+        // int num_queries = 10;
+        // ROS_INFO("Going to run %d random queries", num_queries);
+        // for (int i = 0; i < num_queries; ++i) {
+        // ROS_INFO("\n************* QUERY %d ***************", i);
+        ROS_INFO("Zero time query");
+        m_zero_planner->Query(path);
+        postProcessPath(path);
+        SV_SHOW_INFO_NAMED("trajectory", makePathVisualization(path));
+
+        ROS_DEBUG_NAMED(PI_LOGGER, "smoothed path:");
+        for (size_t pidx = 0; pidx < path.size(); ++pidx) {
+            const auto& point = path[pidx];
+            ROS_DEBUG_STREAM_NAMED(PI_LOGGER, "  " << pidx << ": " << point);
+        }
+
+        auto& traj = res.trajectory.joint_trajectory;
+        convertJointVariablePathToJointTrajectory(path, traj);
+        traj.header.seq = 0;
+        traj.header.stamp = ros::Time::now();
+    
+        if (!m_params.plan_output_dir.empty()) {
+            writePath(res.trajectory_start, res.trajectory);
+        }
+
+        profilePath(traj);
+    //    removeZeroDurationSegments(traj);
+
+        auto now = clock::now();
+        res.planning_time = to_seconds(now - then);
+        m_res = res; // record the last result
+        // getchar();
+    }
+    // }
+    bfs_heuristic.release();    //avoid crash
+
+    return true;
+}
+
 bool PlannerInterface::checkParams(
     const PlanningParams& params) const
 {
@@ -917,26 +1202,10 @@ bool PlannerInterface::setStart(const moveit_msgs::RobotState& state)
 {
     ROS_INFO_NAMED(PI_LOGGER, "set start configuration");
 
-    if (!state.multi_dof_joint_state.joint_names.empty()) {
-        const auto& mdof_joint_names = state.multi_dof_joint_state.joint_names;
-        for (const std::string& joint_name : m_robot->getPlanningJoints()) {
-            auto it = std::find(mdof_joint_names.begin(), mdof_joint_names.end(), joint_name);
-            if (it != mdof_joint_names.end()) {
-                ROS_WARN_NAMED(PI_LOGGER, "planner does not currently support planning for multi-dof joints. found '%s' in planning joints", joint_name.c_str());
-            }
-        }
-    }
-
     RobotState initial_positions;
-    std::vector<std::string> missing;
-    if (!leatherman::getJointPositions(
-            state.joint_state,
-            state.multi_dof_joint_state,
-            m_robot->getPlanningJoints(),
-            initial_positions,
-            missing))
-    {
-        ROS_ERROR_STREAM("start state is missing planning joints: " << missing);
+
+    if (!fillStartState(m_req.start_state, initial_positions)) {
+        ROS_ERROR("Failed to fill start state");
         return false;
     }
 
@@ -966,43 +1235,11 @@ bool PlannerInterface::setGoalConfiguration(
 {
     ROS_INFO_NAMED(PI_LOGGER, "Set goal configuration");
 
-    std::vector<double> sbpl_angle_goal(m_robot->jointVariableCount(), 0);
-    std::vector<double> sbpl_angle_tolerance(m_robot->jointVariableCount(), angles::to_radians(3.0));
-
-    if (goal_constraints.joint_constraints.size() < m_robot->jointVariableCount()) {
-        ROS_WARN_NAMED(PI_LOGGER, "All %zu arm joint constraints must be specified for goal!", m_robot->jointVariableCount());
-        return false;
-    }
-    if (goal_constraints.joint_constraints.size() > m_robot->jointVariableCount()) {
-        ROS_WARN_NAMED(PI_LOGGER, "%d joint constraints specified! Using the first %zu!", (int)goal_constraints.joint_constraints.size(), m_robot->jointVariableCount());
-        return false;
-    }
-
-    const size_t num_angle_constraints = std::min(
-            goal_constraints.joint_constraints.size(), sbpl_angle_goal.size());
-    for (size_t i = 0; i < num_angle_constraints; i++) {
-        const auto& joint_constraint = goal_constraints.joint_constraints[i];
-        const std::string& joint_name = joint_constraint.joint_name;
-        auto jit = std::find(
-                m_robot->getPlanningJoints().begin(),
-                m_robot->getPlanningJoints().end(),
-                joint_name);
-        if (jit == m_robot->getPlanningJoints().end()) {
-            ROS_ERROR("Failed to find goal constraint for joint '%s'", joint_name.c_str());
-            return false;
-        }
-        int jidx = std::distance(m_robot->getPlanningJoints().begin(), jit);
-        sbpl_angle_goal[jidx] = joint_constraint.position;
-        sbpl_angle_tolerance[jidx] = std::min(
-                fabs(joint_constraint.tolerance_above),
-                fabs(joint_constraint.tolerance_below));
-        ROS_INFO_NAMED(PI_LOGGER, "Joint %zu [%s]: goal position: %.3f, goal tolerance: %.3f", i, joint_name.c_str(), sbpl_angle_goal[jidx], sbpl_angle_tolerance[jidx]);
-    }
-
     GoalConstraint goal;
-    goal.type = GoalType::JOINT_STATE_GOAL;
-    goal.angles = sbpl_angle_goal;
-    goal.angle_tolerances = sbpl_angle_tolerance;
+    if (!fillGoalConfigurationConstraint(goal_constraints, goal)) {
+        ROS_ERROR("Failed to fill goal configuration constraint");
+        return false;
+    }
 
     // TODO: really need to reevaluate the necessity of the planning link
     if (m_fk_iface) {
@@ -1038,46 +1275,11 @@ bool PlannerInterface::setGoalPosition(
 {
     ROS_INFO_NAMED(PI_LOGGER, "Setting goal position");
 
-    Eigen::Affine3d goal_pose;
-    Eigen::Vector3d offset;
-    if (!extractGoalPoseFromGoalConstraints(
-            goal_constraints, goal_pose, offset))
-    {
-        ROS_WARN_NAMED(PI_LOGGER, "Failed to extract goal pose from goal constraints");
-        return false;
-    }
-
     GoalConstraint goal;
-    goal.type = GoalType::XYZ_RPY_GOAL;
-    goal.pose = goal_pose;
-    goal.xyz_offset[0] = offset.x();
-    goal.xyz_offset[1] = offset.y();
-    goal.xyz_offset[2] = offset.z();
-
-    std::vector<double> sbpl_tolerance(6, 0.0);
-    if (!extractGoalToleranceFromGoalConstraints(goal_constraints, &sbpl_tolerance[0])) {
-        ROS_WARN_NAMED(PI_LOGGER, "Failed to extract goal tolerance from goal constraints");
+    if (!fillGoalPositionConstraint(goal_constraints, goal)) {
+        ROS_ERROR("Failed to fill goal position constraint");
         return false;
     }
-
-    goal.xyz_tolerance[0] = sbpl_tolerance[0];
-    goal.xyz_tolerance[1] = sbpl_tolerance[1];
-    goal.xyz_tolerance[2] = sbpl_tolerance[2];
-    goal.rpy_tolerance[0] = sbpl_tolerance[3];
-    goal.rpy_tolerance[1] = sbpl_tolerance[4];
-    goal.rpy_tolerance[2] = sbpl_tolerance[5];
-
-    ROS_INFO_NAMED(PI_LOGGER, "New Goal");
-    ROS_INFO_NAMED(PI_LOGGER, "    frame: %s", m_params.planning_frame.c_str());
-    double yaw, pitch, roll;
-    angles::get_euler_zyx(goal.pose.rotation(), yaw, pitch, roll);
-    ROS_INFO_NAMED(PI_LOGGER, "    pose: (x: %0.3f, y: %0.3f, z: %0.3f, R: %0.3f, P: %0.3f, Y: %0.3f)", goal.pose.translation()[0], goal.pose.translation()[1], goal.pose.translation()[2], yaw, pitch, roll);
-    ROS_INFO_NAMED(PI_LOGGER, "    offset: (%0.3f, %0.3f, %0.3f)", goal.xyz_offset[0], goal.xyz_offset[1], goal.xyz_offset[2]);
-    ROS_INFO_NAMED(PI_LOGGER, "    tolerance: (dx: %0.3f, dy: %0.3f, dz: %0.3f, dR: %0.3f, dP: %0.3f, dY: %0.3f)", sbpl_tolerance[0], sbpl_tolerance[1], sbpl_tolerance[2], sbpl_tolerance[3], sbpl_tolerance[4], sbpl_tolerance[5]);
-
-    // ...a lot more relies on this than I had hoped
-    Eigen::Affine3d target_pose = goal_pose * Eigen::Translation3d(offset);
-    goal.tgt_off_pose = target_pose;
 
     if (!m_pspace->setGoal(goal)) {
         ROS_ERROR("Failed to set goal");
@@ -1414,6 +1616,123 @@ auto PlannerInterface::getBfsWallsVisualization() const -> visual::Marker
     } else {
         return visual::Marker{ };
     }
+}
+
+bool PlannerInterface::fillStartState(
+    const moveit_msgs::RobotState& state,
+    RobotState& start_state)
+{
+    if (!state.multi_dof_joint_state.joint_names.empty()) {
+        const auto& mdof_joint_names = state.multi_dof_joint_state.joint_names;
+        for (const std::string& joint_name : m_robot->getPlanningJoints()) {
+            auto it = std::find(mdof_joint_names.begin(), mdof_joint_names.end(), joint_name);
+            if (it != mdof_joint_names.end()) {
+                ROS_WARN_NAMED(PI_LOGGER, "planner does not currently support planning for multi-dof joints. found '%s' in planning joints", joint_name.c_str());
+            }
+        }
+    }
+
+    // RobotState initial_positions;
+    std::vector<std::string> missing;
+    if (!leatherman::getJointPositions(
+            state.joint_state,
+            state.multi_dof_joint_state,
+            m_robot->getPlanningJoints(),
+            start_state,
+            missing))
+    {
+        ROS_ERROR("start state is missing planning joints: ");
+        return false;
+    }
+    return true;
+}
+
+bool PlannerInterface::fillGoalConfigurationConstraint(
+    const moveit_msgs::Constraints& goal_constraints,
+    GoalConstraint& goal)
+{
+    std::vector<double> sbpl_angle_goal(m_robot->jointVariableCount(), 0);
+    std::vector<double> sbpl_angle_tolerance(m_robot->jointVariableCount(), angles::to_radians(3.0));
+
+    if (goal_constraints.joint_constraints.size() < m_robot->jointVariableCount()) {
+        ROS_WARN_NAMED(PI_LOGGER, "All %zu arm joint constraints must be specified for goal!", m_robot->jointVariableCount());
+        return false;
+    }
+    if (goal_constraints.joint_constraints.size() > m_robot->jointVariableCount()) {
+        ROS_WARN_NAMED(PI_LOGGER, "%d joint constraints specified! Using the first %zu!", (int)goal_constraints.joint_constraints.size(), m_robot->jointVariableCount());
+        return false;
+    }
+
+    const size_t num_angle_constraints = std::min(
+            goal_constraints.joint_constraints.size(), sbpl_angle_goal.size());
+    for (size_t i = 0; i < num_angle_constraints; i++) {
+        const auto& joint_constraint = goal_constraints.joint_constraints[i];
+        const std::string& joint_name = joint_constraint.joint_name;
+        auto jit = std::find(
+                m_robot->getPlanningJoints().begin(),
+                m_robot->getPlanningJoints().end(),
+                joint_name);
+        if (jit == m_robot->getPlanningJoints().end()) {
+            ROS_ERROR("Failed to find goal constraint for joint '%s'", joint_name.c_str());
+            return false;
+        }
+        int jidx = std::distance(m_robot->getPlanningJoints().begin(), jit);
+        sbpl_angle_goal[jidx] = joint_constraint.position;
+        sbpl_angle_tolerance[jidx] = std::min(
+                fabs(joint_constraint.tolerance_above),
+                fabs(joint_constraint.tolerance_below));
+        ROS_INFO_NAMED(PI_LOGGER, "Joint %zu [%s]: goal position: %.3f, goal tolerance: %.3f", i, joint_name.c_str(), sbpl_angle_goal[jidx], sbpl_angle_tolerance[jidx]);
+    }
+
+    goal.type = GoalType::JOINT_STATE_GOAL;
+    goal.angles = sbpl_angle_goal;
+    goal.angle_tolerances = sbpl_angle_tolerance;
+}
+
+bool PlannerInterface::fillGoalPositionConstraint(
+    const moveit_msgs::Constraints& goal_constraints,
+    GoalConstraint& goal)
+{
+    Eigen::Affine3d goal_pose;
+    Eigen::Vector3d offset;
+    if (!extractGoalPoseFromGoalConstraints(
+            goal_constraints, goal_pose, offset))
+    {
+        ROS_WARN_NAMED(PI_LOGGER, "Failed to extract goal pose from goal constraints");
+        return false;
+    }
+
+    goal.type = GoalType::XYZ_RPY_GOAL;
+    goal.pose = goal_pose;
+    goal.xyz_offset[0] = offset.x();
+    goal.xyz_offset[1] = offset.y();
+    goal.xyz_offset[2] = offset.z();
+
+    std::vector<double> sbpl_tolerance(6, 0.0);
+    if (!extractGoalToleranceFromGoalConstraints(goal_constraints, &sbpl_tolerance[0])) {
+        ROS_WARN_NAMED(PI_LOGGER, "Failed to extract goal tolerance from goal constraints");
+        return false;
+    }
+
+    goal.xyz_tolerance[0] = sbpl_tolerance[0];
+    goal.xyz_tolerance[1] = sbpl_tolerance[1];
+    goal.xyz_tolerance[2] = sbpl_tolerance[2];
+    goal.rpy_tolerance[0] = sbpl_tolerance[3];
+    goal.rpy_tolerance[1] = sbpl_tolerance[4];
+    goal.rpy_tolerance[2] = sbpl_tolerance[5];
+
+    ROS_INFO_NAMED(PI_LOGGER, "New Goal");
+    ROS_INFO_NAMED(PI_LOGGER, "    frame: %s", m_params.planning_frame.c_str());
+    double yaw, pitch, roll;
+    angles::get_euler_zyx(goal.pose.rotation(), yaw, pitch, roll);
+    ROS_INFO_NAMED(PI_LOGGER, "    pose: (x: %0.3f, y: %0.3f, z: %0.3f, R: %0.3f, P: %0.3f, Y: %0.3f)", goal.pose.translation()[0], goal.pose.translation()[1], goal.pose.translation()[2], yaw, pitch, roll);
+    ROS_INFO_NAMED(PI_LOGGER, "    offset: (%0.3f, %0.3f, %0.3f)", goal.xyz_offset[0], goal.xyz_offset[1], goal.xyz_offset[2]);
+    ROS_INFO_NAMED(PI_LOGGER, "    tolerance: (dx: %0.3f, dy: %0.3f, dz: %0.3f, dR: %0.3f, dP: %0.3f, dY: %0.3f)", sbpl_tolerance[0], sbpl_tolerance[1], sbpl_tolerance[2], sbpl_tolerance[3], sbpl_tolerance[4], sbpl_tolerance[5]);
+
+    // ...a lot more relies on this than I had hoped
+    Eigen::Affine3d target_pose = goal_pose * Eigen::Translation3d(offset);
+    goal.tgt_off_pose = target_pose;
+    return true;
 }
 
 bool PlannerInterface::extractGoalPoseFromGoalConstraints(

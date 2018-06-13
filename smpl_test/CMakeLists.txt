@@ -19,6 +19,8 @@ find_package(catkin
         smpl
         sbpl_collision_checking
         sbpl_kdl_robot_model
+        sbpl_pr2_robot_model
+        moveit_planners_sbpl
         visualization_msgs)
 
 find_package(orocos_kdl REQUIRED)

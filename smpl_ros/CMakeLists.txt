@@ -5,7 +5,7 @@ set(CMAKE_BUILD_TYPE Release)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-find_package(Boost REQUIRED COMPONENTS filesystem)
+find_package(Boost REQUIRED COMPONENTS filesystem serialization)
 
 find_package(Eigen3 REQUIRED)
 
@@ -55,7 +55,8 @@ add_library(
     src/debug/visualizer_ros.cpp
     src/debug/marker_conversions.cpp
     src/ros/planner_interface.cpp
-    src/ros/propagation_distance_field.cpp)
+    src/ros/propagation_distance_field.cpp
+    src/ros/zero_time_planner.cpp)
 
 target_link_libraries(smpl_ros ${Boost_LIBRARIES} ${catkin_LIBRARIES})
 

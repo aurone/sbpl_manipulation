@@ -15,6 +15,7 @@
     <depend>orocos_kdl</depend>
     <depend>roscpp</depend>
     <depend>smpl</depend>
+    <depend>moveit_planners_sbpl</depend>
     <depend>sbpl_collision_checking</depend>
     <depend>sbpl_kdl_robot_model</depend>
     <depend>visualization_msgs</depend>
