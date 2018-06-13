@@ -17,7 +17,12 @@ set(sbpl_INCLUDE_DIRS ${SBPL_INCLUDE_DIRS})
 set(sbpl_LIBRARIES ${SBPL_LIBRARIES})
 
 if(SMPL_ROS_BUILD)
-    find_package(catkin REQUIRED COMPONENTS roscpp visualization_msgs)
+    find_package(catkin REQUIRED COMPONENTS roscpp
+    moveit_core
+    moveit_ros_planning
+    pluginlib
+    cmake_modules
+    visualization_msgs)
 
     catkin_package(
         INCLUDE_DIRS
@@ -26,6 +31,7 @@ if(SMPL_ROS_BUILD)
             smpl
         CATKIN_DEPENDS
             roscpp
+            moveit_core
             visualization_msgs
         DEPENDS
             Boost
@@ -96,6 +102,7 @@ add_library(
     src/graph/robot_planning_space.cpp
     src/graph/workspace_lattice.cpp
     src/graph/workspace_lattice_base.cpp
+    src/graph/workspace_lattice_zero.cpp
     src/heuristic/attractor_heuristic.cpp
     src/heuristic/bfs_heuristic.cpp
     src/heuristic/egraph_bfs_heuristic.cpp
@@ -111,6 +118,7 @@ add_library(
     src/search/mhastarpp.cpp
     src/search/unconstrained_mhastar.cpp
     src/search/arastar.cpp
+    src/search/arastar_zero.cpp
     src/search/experience_graph_planner.cpp
     src/search/adaptive_planner.cpp
     src/search/lazy_arastar.cpp

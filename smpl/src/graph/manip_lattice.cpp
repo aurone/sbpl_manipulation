@@ -143,6 +143,19 @@ bool ManipLattice::init(
     return true;
 }
 
+void ManipLattice::ClearStates()
+{
+    for (size_t i = 0; i < m_states.size(); i++) {
+        delete m_states[i];
+        m_states[i] = nullptr;
+    }
+    m_states.clear();
+    m_state_to_id.clear();
+    m_states.shrink_to_fit();
+
+    m_goal_state_id = reserveHashEntry();
+}
+
 void ManipLattice::PrintState(int stateID, bool verbose, FILE* fout)
 {
     assert(stateID >= 0 && stateID < (int)m_states.size());

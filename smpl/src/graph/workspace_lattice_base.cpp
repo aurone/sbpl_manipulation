@@ -87,7 +87,8 @@ bool WorkspaceLatticeBase::init(
     m_res[5] = 2.0 * M_PI / _params.Y_count;
 
     for (int i = 0; i < m_fangle_indices.size(); ++i) {
-        m_res[6 + i] = (2.0 * M_PI) / _params.free_angle_res[i];
+        // m_res[6 + i] = (2.0 * M_PI) / _params.free_angle_res[i];
+        m_res[6 + i] = _params.free_angle_res[i];
     }
 
     m_val_count[0] = std::numeric_limits<int>::max();
