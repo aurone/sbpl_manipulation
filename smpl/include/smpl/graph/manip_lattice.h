@@ -110,6 +110,8 @@ public:
         const std::vector<double>& resolutions,
         ActionSpace* actions);
 
+    void ClearStates();
+
     const std::vector<double>& resolutions() const { return m_coord_deltas; }
     ActionSpace* actionSpace() { return m_actions; }
     const ActionSpace* actionSpace() const { return m_actions; }

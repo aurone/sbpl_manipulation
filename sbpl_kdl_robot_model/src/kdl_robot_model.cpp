@@ -52,12 +52,16 @@ static double normalizeAngle(double a, double a_min, double a_max)
         a = std::fmod(a, 2.0 * M_PI);
     }
 
-    while (a > a_max) {
-        a -= 2.0 * M_PI;
+    const double eps = 0.00001;
+    if (fabs(a - a_max) > eps) {
+        while (a > a_max) {
+            a -= 2.0 * M_PI;
+        }
     }
-
-    while (a < a_min) {
-        a += 2.0 * M_PI;
+    if (fabs(a - a_min) > eps) {
+        while (a < a_min) {
+            a += 2.0 * M_PI;
+        }
     }
 
     return a;
@@ -315,6 +319,7 @@ Extension* KDLRobotModel::getExtension(size_t class_code)
     {
         return this;
     }
+
     return nullptr;
 }
 

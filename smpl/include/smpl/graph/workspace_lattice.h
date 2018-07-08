@@ -171,7 +171,7 @@ public:
     int GetTrueCost(int parent_id, int child_id) override;
     ///@}
 
-private:
+protected:
 
     WorkspaceLatticeState* m_goal_entry = nullptr;
     int m_goal_state_id = - 1;
