@@ -29,26 +29,16 @@
 
 /// \author Benjamin Cohen
 
-#ifndef sbpl_manip_ubr1_kdl_robot_model_h
-#define sbpl_manip_ubr1_kdl_robot_model_h
+#ifndef SBPL_PR2_ROBOT_MODEL_UBR1_KDL_ROBOT_MODEL_H
+#define SBPL_PR2_ROBOT_MODEL_UBR1_KDL_ROBOT_MODEL_H
 
 // standard includes
 #include <string>
-#include <vector>
 
 // system includes
-#include <kdl/chain.hpp>
-#include <kdl/chainfksolverpos_recursive.hpp>
-#include <kdl/chainiksolverpos_nr_jl.hpp>
-#include <kdl/chainiksolvervel_pinv.hpp>
-#include <kdl/frames.hpp>
-#include <kdl/jntarray.hpp>
-#include <kdl_parser/kdl_parser.hpp>
-#include <ros/console.h>
-#include <urdf/model.h>
+#include <sbpl_kdl_robot_model/kdl_robot_model.h>
 
 // project includes
-#include <sbpl_kdl_robot_model/kdl_robot_model.h>
 #include <sbpl_pr2_robot_model/orientation_solver.h>
 
 namespace sbpl {
@@ -58,23 +48,25 @@ class UBR1KDLRobotModel : public KDLRobotModel
 {
 public:
 
-    UBR1KDLRobotModel();
+    bool init(
+        const std::string& robot_description,
+        const std::string& base_link,
+        const std::string& tip_link,
+        int free_angle = DEFAULT_FREE_ANGLE_INDEX);
 
-    virtual ~UBR1KDLRobotModel();
-
-    virtual bool computeIK(
+    bool computeIK(
         const Eigen::Affine3d& pose,
         const RobotState& start,
         RobotState& solution,
-        int option = ik_option::UNRESTRICTED);
+        ik_option::IkOption option = ik_option::UNRESTRICTED) override;
 
-  private:
+private:
 
-    RPYSolver* rpy_solver_;
+    std::unique_ptr<RPYSolver> m_rpy_solver;
 
-    std::string forearm_roll_link_name_;
-    std::string wrist_pitch_joint_name_;
-    std::string end_effector_link_name_;
+    std::string m_forearm_roll_link_name;
+    std::string m_wrist_pitch_joint_name;
+    std::string m_end_effector_link_name;
 };
 
 } // namespace motion

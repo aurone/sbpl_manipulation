@@ -30,43 +30,56 @@
 /// \author Benjamin Cohen
 
 #include <sbpl_pr2_robot_model/ubr1_kdl_robot_model.h>
-#include <ros/ros.h>
+
+// standard includes
+#include <vector>
+
+// system includes
+#include <eigen_conversions/eigen_kdl.h>
+#include <kdl/frames.hpp>
 #include <leatherman/print.h>
 #include <leatherman/utils.h>
-#include <kdl/tree.hpp>
 #include <smpl/angles.h>
-#include <eigen_conversions/eigen_kdl.h>
-
-using namespace std;
 
 namespace sbpl {
 namespace motion {
 
-UBR1KDLRobotModel::UBR1KDLRobotModel() :
-    rpy_solver_(NULL)
+bool UBR1KDLRobotModel::init(
+    const std::string& robot_description,
+    const std::string& base_link,
+    const std::string& tip_link,
+    int free_angle)
 {
-    chain_root_name_ = "torso_lift_link";
-    chain_tip_name_ = "gripper_link";
-    forearm_roll_link_name_ = "forearm_roll_link";
-    wrist_pitch_joint_name_ = "wrist_flex_joint";
-    end_effector_link_name_ = "gripper_link";
+    if (!KDLRobotModel::init(
+            robot_description,
+            base_link,
+            tip_link,
+            free_angle))
+    {
+        return false;
+    }
 
-    // initialize rpy solver
-    double wrist_max_limit = -0.015, wrist_min_limit = -2.0;
+    if (base_link == "torso_lift_link" && tip_link == "gripper_link") {
+        m_forearm_roll_link_name = "forearm_roll_link";
+        m_wrist_pitch_joint_name = "wrist_flex_joint";
+        m_end_effector_link_name = "gripper_link";
 
-//    bool wrist_continuous;
-//    if (!getJointLimits(wrist_pitch_joint_name_, wrist_min_limit, wrist_max_limit, wrist_continuous)) {
-//        ROS_ERROR("Failed to get wrist pitch joint limits...");
-//    }
-//    ROS_ERROR("Wrist limits:  {%0.3f, %0.3f}", wrist_min_limit, wrist_max_limit);
+        // initialize rpy solver
+        double wrist_max_limit = -0.015;
+        double wrist_min_limit = -2.0;
 
-    rpy_solver_ = new RPYSolver(wrist_min_limit, wrist_max_limit);
+        m_rpy_solver.reset(new RPYSolver(wrist_min_limit, wrist_max_limit));
+    }
+
+    return true;
 }
 
-UBR1KDLRobotModel::~UBR1KDLRobotModel()
+static void NormalizeAngles(KDLRobotModel* model, KDL::JntArray* q)
 {
-    if (rpy_solver_) {
-        delete rpy_solver_;
+    for (auto i = 0; i < model->jointVariableCount(); ++i) {
+        if (model->vprops[i].continuous) {
+            (*q)(i) = sbpl::angles::normalize_angle((*q)(i));
+        }
     }
 }
 
@@ -74,37 +87,39 @@ bool UBR1KDLRobotModel::computeIK(
     const Eigen::Affine3d& pose,
     const RobotState& start,
     RobotState& solution,
-    int option)
+    ik_option::IkOption option)
 {
-    KDL::Frame frame_des;
-    tf::transformEigenToKDL(pose, frame_des);
+    if (option == ik_option::RESTRICT_XYZ && m_rpy_solver) {
+        // transform into kinematics and convert to kdl
+        auto* T_map_kinematics = GetLinkTransform(&this->robot_state, this->m_kinematics_link);
+        KDL::Frame frame_des;
+        tf::transformEigenToKDL(T_map_kinematics->inverse() * pose, frame_des);
 
-    // transform into kinematics frame
-    frame_des = T_planning_to_kinematics_ * frame_des;
-
-    // seed configuration
-    for (size_t i = 0; i < start.size(); i++) {
-        // must be normalized for CartToJntSearch
-        jnt_pos_in_(i) = angles::normalize_angle(start[i]);
-    }
-
-    solution.resize(start.size());
-
-    // choose solver
-    if (option == ik_option::RESTRICT_XYZ) {
-        KDL::Frame fpose, epose;
-
-        // get pose of forearm link
-        if (!computeFK(start, forearm_roll_link_name_, fpose)) {
-            ROS_ERROR("[rm] computeFK failed on forearm pose.");
-            return false;
+        // seed configuration
+        for (size_t i = 0; i < start.size(); i++) {
+            this->m_jnt_pos_in(i) = start[i];
         }
 
-        // get pose of end-effector link
-        if (!computeFK(start, end_effector_link_name_, epose)) {
-            ROS_ERROR("[rm] computeFK failed on end_eff pose.");
-            return false;
+        NormalizeAngles(this, &m_jnt_pos_in);
+
+        for (auto i = 0; i < this->getPlanningJoints().size(); ++i) {
+            auto& var_name = this->getPlanningJoints()[i];
+            auto* var = GetVariable(this->robot_model, &var_name);
+            SetVariablePosition(&this->robot_state, var, start[i]);
         }
+
+        auto* forearm_link = GetLink(this->robot_model, &m_forearm_roll_link_name);
+        auto* end_effector_link = GetLink(this->robot_model, &m_end_effector_link_name);
+        UpdateLinkTransform(&this->robot_state, forearm_link);
+        UpdateLinkTransform(&this->robot_state, end_effector_link);
+
+        auto* forearm_pose = GetLinkTransform(&this->robot_state, forearm_link);
+        auto* end_effector_pose = GetLinkTransform(&this->robot_state, end_effector_link);
+
+        KDL::Frame fpose;
+        KDL::Frame epose;
+        tf::transformEigenToKDL(*forearm_pose, fpose);
+        tf::transformEigenToKDL(*end_effector_pose, epose);
 
         std::vector<double> vfpose(6, 0.0);
         vfpose[0] = fpose.p.x();
@@ -120,19 +135,11 @@ bool UBR1KDLRobotModel::computeIK(
 
         std::vector<double> rpy(3, 0.0);
         frame_des.M.GetRPY(rpy[0], rpy[1], rpy[2]);
-        return rpy_solver_->computeRPYOnly(rpy, start, vfpose, vepose, 1, solution);
+        solution.resize(start.size());
+        return m_rpy_solver->computeRPYOnly(rpy, start, vfpose, vepose, 1, solution);
+    } else {
+        return KDLRobotModel::computeIK(pose, start, solution, option);
     }
-    else {
-        if (!computeIKSearch(pose, start, solution, 0.01)) {
-            return false;
-        }
-
-        for (size_t i = 0; i < solution.size(); ++i) {
-            solution[i] = jnt_pos_out_(i);
-        }
-    }
-
-    return true;
 }
 
 } // namespace motion

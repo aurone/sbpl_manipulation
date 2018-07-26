@@ -35,84 +35,67 @@
 #include <kdl/tree.hpp>
 #include <leatherman/print.h>
 #include <leatherman/utils.h>
-#include <ros/ros.h>
+#include <ros/console.h>
 #include <smpl/angles.h>
 #include <eigen_conversions/eigen_kdl.h>
-
-using namespace std;
 
 namespace sbpl {
 namespace motion {
 
-PR2KDLRobotModel::PR2KDLRobotModel() :
-    KDLRobotModel(),
-    pr2_ik_solver_(),
-    rpy_solver_()
-{
-    forearm_roll_link_name_ = "r_forearm_roll_link";
-    wrist_pitch_joint_name_ = "r_wrist_flex_joint";
-    end_effector_link_name_ = "r_gripper_palm_link";
-}
-
-PR2KDLRobotModel::~PR2KDLRobotModel()
-{
-}
-
 bool PR2KDLRobotModel::init(
     const std::string& robot_description,
-    const std::vector<std::string>& planning_joints,
-    const std::string& chain_root_link,
-    const std::string& chain_tip_link,
+    const std::string& base_link,
+    const std::string& tip_link,
     int free_angle)
 {
-    ROS_INFO("Initialize PR2 KDL Robot Model");
-
     if (!KDLRobotModel::init(
-            robot_description,
-            planning_joints,
-            chain_root_link,
-            chain_tip_link,
-            free_angle))
+            robot_description, base_link, tip_link, free_angle))
     {
         return false;
     }
 
-    // TODO: Take in as params instead.
-    if (planning_joints[0].substr(0,1).compare("l") == 0) {
-        forearm_roll_link_name_.replace(0,1,"l");
-        wrist_pitch_joint_name_.replace(0,1,"l");
-        end_effector_link_name_.replace(0,1,"l");
-    }
-
     // PR2 Specific IK Solver
-    pr2_ik_solver_.reset(new pr2_arm_kinematics::PR2ArmIKSolver(
-            urdf_, chain_root_name_, chain_tip_name_, 0.02, 2));
+    pr2_ik_solver_.reset(new pr2_arm_kinematics::PR2ArmIKSolver(m_urdf, base_link, tip_link, 0.02, 2));
     if (!pr2_ik_solver_->active_) {
-        ROS_ERROR("The pr2 IK solver is NOT active. Exiting.");
-        initialized_ = false;
+        ROS_ERROR("The PR2 IK solver is NOT active.");
         return false;
     }
 
     // initialize rpy solver
-    double wrist_min_limit, wrist_max_limit;
-    bool wrist_continuous;
-    double wrist_vel_limit, wrist_eff_limit;
-    if (!getJointLimits(
-            wrist_pitch_joint_name_,
-            wrist_min_limit,
-            wrist_max_limit,
-            wrist_continuous,
-            wrist_vel_limit,
-            wrist_eff_limit))
-    {
-        initialized_ = false;
-        return false;
+    if (tip_link == "r_gripper_palm_link" || tip_link == "l_gripper_palm_link") {
+        if (base_link.substr(0, 1) == "r") {
+            m_forearm_roll_link_name = "r_forearm_roll_link";
+            m_wrist_pitch_joint_name = "r_wrist_flex_joint";
+            m_end_effector_link_name = "r_gripper_palm_link";
+        } else {
+            m_forearm_roll_link_name = "l_forearm_roll_link";
+            m_wrist_pitch_joint_name = "l_wrist_flex_joint";
+            m_end_effector_link_name = "l_gripper_palm_link";
+        }
+
+        auto* wrist_var = GetVariable(this->robot_model, &m_wrist_pitch_joint_name);
+        if (wrist_var == NULL) {
+            return false;
+        }
+
+        double wrist_min_limit;
+        double wrist_max_limit;
+        bool wrist_continuous;
+        double wrist_vel_limit;
+        double wrist_eff_limit;
+        m_rpy_solver.reset(new RPYSolver(wrist_min_limit, wrist_max_limit));
     }
 
-    rpy_solver_.reset(new RPYSolver(wrist_min_limit, wrist_max_limit));
-
-    initialized_ = true;
     return true;
+}
+
+static void NormalizeAngles(KDLRobotModel* model, KDL::JntArray* q)
+{
+    for (auto i = 0; i < model->jointVariableCount(); ++i) {
+        if (model->vprops[i].continuous) {
+            (*q)(i) = sbpl::angles::normalize_angle((*q)(i));
+        }
+    }
 }
 
 bool PR2KDLRobotModel::computeIK(
@@ -121,35 +104,36 @@ bool PR2KDLRobotModel::computeIK(
     RobotState& solution,
     ik_option::IkOption option)
 {
+    auto* T_map_kinematics = GetLinkTransform(&this->robot_state, this->m_kinematics_link);
     KDL::Frame frame_des;
-    tf::transformEigenToKDL(pose, frame_des);
-
-    // transform into kinematics frame
-    frame_des = T_planning_to_kinematics_ * frame_des;
+    tf::transformEigenToKDL(T_map_kinematics->inverse() * pose, frame_des);
 
     // seed configuration
     for (size_t i = 0; i < start.size(); i++) {
-        // must be normalized for CartToJntSearch
-        jnt_pos_in_(i) = angles::normalize_angle(start[i]);
+        m_jnt_pos_in(i) = start[i];
     }
 
-    solution.resize(start.size());
+    NormalizeAngles(this, &m_jnt_pos_in);
 
-    // choose solver
-    if (option == ik_option::RESTRICT_XYZ) {
-        KDL::Frame fpose, epose;
-
-        // get pose of forearm link
-        if (!computeFK(start, forearm_roll_link_name_, fpose)) {
-            ROS_ERROR("[rm] computeFK failed on forearm pose.");
-            return false;
+    if (option == ik_option::RESTRICT_XYZ && m_rpy_solver) {
+        for (auto i = 0; i < this->getPlanningJoints().size(); ++i) {
+            auto& var_name = this->getPlanningJoints()[i];
+            auto* var = GetVariable(this->robot_model, &var_name);
+            SetVariablePosition(&this->robot_state, var, start[i]);
         }
 
-        // get pose of end-effector link
-        if (!computeFK(start, end_effector_link_name_, epose)) {
-            ROS_ERROR("[rm] computeFK failed on end_eff pose.");
-            return false;
-        }
+        auto* forearm_link = GetLink(this->robot_model, &m_forearm_roll_link_name);
+        auto* end_effector_link = GetLink(this->robot_model, &m_end_effector_link_name);
+        UpdateLinkTransform(&this->robot_state, forearm_link);
+        UpdateLinkTransform(&this->robot_state, end_effector_link);
+
+        auto* forearm_pose = GetLinkTransform(&this->robot_state, forearm_link);
+        auto* end_effector_pose = GetLinkTransform(&this->robot_state, end_effector_link);
+
+        KDL::Frame fpose;
+        KDL::Frame epose;
+        tf::transformEigenToKDL(*forearm_pose, fpose);
+        tf::transformEigenToKDL(*end_effector_pose, epose);
 
         std::vector<double> vfpose(6, 0.0);
         vfpose[0] = fpose.p.x();
@@ -165,26 +149,30 @@ bool PR2KDLRobotModel::computeIK(
 
         std::vector<double> rpy(3, 0.0);
         frame_des.M.GetRPY(rpy[0], rpy[1], rpy[2]);
-        return rpy_solver_->computeRPYOnly(rpy, start, vfpose, vepose, 1, solution);
-    } else {
-        const double timeout = 0.2;
-        const double consistency_limit = 2.0 * M_PI;
+        solution.resize(start.size());
+        return m_rpy_solver->computeRPYOnly(rpy, start, vfpose, vepose, 1, solution);
+    }
+
+    if (pr2_ik_solver_) {
+        auto timeout = 0.2;
+        auto consistency_limit = 2.0 * M_PI;
         if (pr2_ik_solver_->CartToJntSearch(
-                jnt_pos_in_,
+                m_jnt_pos_in,
                 frame_des,
-                jnt_pos_out_,
+                m_jnt_pos_out,
                 timeout,
                 consistency_limit) < 0)
         {
             return false;
         }
 
+        solution.resize(start.size());
         for (size_t i = 0; i < solution.size(); ++i) {
-            solution[i] = jnt_pos_out_(i);
+            solution[i] = m_jnt_pos_out(i);
         }
     }
 
-    return true;
+    return KDLRobotModel::computeIK(pose, start, solution, option);
 }
 
 bool PR2KDLRobotModel::computeFastIK(
@@ -192,25 +180,24 @@ bool PR2KDLRobotModel::computeFastIK(
     const RobotState& start,
     RobotState& solution)
 {
+    auto* T_map_kinematics = GetLinkTransform(&this->robot_state, this->m_kinematics_link);
     KDL::Frame frame_des;
-    tf::transformEigenToKDL(pose, frame_des);
-
-    // transform into kinematics frame
-    frame_des = T_planning_to_kinematics_ * frame_des;
+    tf::transformEigenToKDL(T_map_kinematics->inverse() * pose, frame_des);
 
     // seed configuration
     for (size_t i = 0; i < start.size(); i++) {
-        // must be normalized for CartToJntSearch
-        jnt_pos_in_(i) = angles::normalize_angle(start[i]);
+        m_jnt_pos_in(i) = start[i];
     }
 
-    if (pr2_ik_solver_->CartToJnt(jnt_pos_in_, frame_des, jnt_pos_out_) < 0) {
+    NormalizeAngles(this, &m_jnt_pos_in);
+
+    if (pr2_ik_solver_->CartToJnt(m_jnt_pos_in, frame_des, m_jnt_pos_out) < 0) {
         return false;
     }
 
     solution.resize(start.size());
     for (size_t i = 0; i < solution.size(); ++i) {
-        solution[i] = jnt_pos_out_(i);
+        solution[i] = m_jnt_pos_out(i);
     }
 
     return true;

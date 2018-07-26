@@ -36,72 +36,55 @@
 // standard includes
 #include <memory>
 #include <string>
-#include <unordered_map>
-#include <vector>
 
 // system includes
 #include <kdl/chain.hpp>
 #include <kdl/chainfksolverpos_recursive.hpp>
 #include <kdl/chainiksolverpos_nr_jl.hpp>
 #include <kdl/chainiksolvervel_pinv.hpp>
-#include <kdl/frames.hpp>
 #include <kdl/jntarray.hpp>
 #include <kdl/tree.hpp>
-#include <ros/console.h>
 #include <smpl/robot_model.h>
+#include <smpl_urdf_robot_model/smpl_urdf_robot_model.h>
 #include <urdf/model.h>
 
 namespace sbpl {
 namespace motion {
 
 class KDLRobotModel :
-    public virtual RobotModel,
-    public virtual ForwardKinematicsInterface,
-    public virtual InverseKinematicsInterface
+    public virtual urdf::URDFRobotModel,
+    public virtual InverseKinematicsInterface,
+    public virtual RedundantManipulatorInterface
 {
 public:
 
     static const int DEFAULT_FREE_ANGLE_INDEX = 2;
 
-    KDLRobotModel();
-
-    virtual ~KDLRobotModel();
-
-    virtual bool init(
+    bool init(
         const std::string& robot_description,
-        const std::vector<std::string>& planning_joints,
-        const std::string& chain_root_link,
-        const std::string& chain_tip_link,
+        const std::string& base_link,
+        const std::string& tip_link,
         int free_angle = DEFAULT_FREE_ANGLE_INDEX);
 
-    const std::string& getKinematicsFrame() const;
-
-    /// Set the transform from the kinematics frame to the planning frame.
-    void setKinematicsToPlanningTransform(
-        const KDL::Frame& f,
-        const std::string& name);
-
-    bool setPlanningLink(const std::string& name);
-    const std::string& getPlanningLink() const;
-
-    /// Compute the forward kinematics pose of a link in the robot model.
-    virtual bool computeFK(
-        const std::vector<double>& angles,
-        const std::string& name,
-        KDL::Frame& f);
-
-    virtual bool computeFastIK(
-        const Eigen::Affine3d& pose,
-        const RobotState& start,
-        RobotState& solution);
+    auto getBaseLink() const -> const std::string&;
+    auto getPlanningLink() const -> const std::string&;
 
     bool computeIKSearch(
         const Eigen::Affine3d& pose,
         const RobotState& start,
-        RobotState& solution,
-        double timeout);
+        RobotState& solution);
 
     void printRobotModelInformation();
+
+    /// \name RedundantManipulatorInterface
+    /// @{
+    const int redundantVariableCount() const override { return 0; }
+    const int redundantVariableIndex(int vidx) const override { return 0.0; }
+    bool computeFastIK(
+        const Eigen::Affine3d& pose,
+        const RobotState& start,
+        RobotState& solution) override;
+    /// @}
 
     /// \name InverseKinematicsInterface Interface
     ///@{
@@ -118,87 +101,41 @@ public:
         ik_option::IkOption option = ik_option::UNRESTRICTED) override;
     ///@}
 
-    /// \name ForwardKinematicsInterface Interface
-    ///@{
-    Eigen::Affine3d computeFK(const RobotState& angles) override;
-    ///@}
-
-    /// \name RobotModel Interface
-    ///@{
-    double minPosLimit(int jidx) const override { return min_limits_[jidx]; }
-    double maxPosLimit(int jidx) const override { return max_limits_[jidx]; }
-    bool   hasPosLimit(int jidx) const override { return !continuous_[jidx]; }
-    bool   isContinuous(int jidx) const override { return continuous_[jidx]; }
-    double velLimit(int jidx) const override { return vel_limits_[jidx]; }
-    double accLimit(int jidx) const override { return 0.0; }
-
-    bool checkJointLimits(
-        const std::vector<double>& angles,
-        bool verbose = false) override;
-    ///@}
-
     /// \name Extension Interface
     ///@{
-    Extension* getExtension(size_t class_code) override;
+    auto getExtension(size_t class_code) -> Extension* override;
     ///@}
 
-protected:
+public:
 
-    std::string planning_link_;
+    ::urdf::Model m_urdf;
 
-    /** \brief frame that the kinematics is computed in (i.e. robot base) */
-    std::string kinematics_frame_;
+    urdf::RobotModel m_robot_model;
 
-    KDL::Frame T_kinematics_to_planning_;
-    KDL::Frame T_planning_to_kinematics_;
+    const urdf::Link* m_kinematics_link = NULL;
 
-    bool initialized_;
+    std::string m_base_link;
+    std::string m_tip_link;
 
-    urdf::Model urdf_;
-    int free_angle_;
-    std::string chain_root_name_;
-    std::string chain_tip_name_;
+    KDL::Tree m_tree;
+    KDL::Chain m_chain;
 
-    KDL::Tree ktree_;
-    KDL::Chain kchain_;
-    KDL::JntArray jnt_pos_in_;
-    KDL::JntArray jnt_pos_out_;
-    KDL::Frame p_out_;
+    std::unique_ptr<KDL::ChainFkSolverPos_recursive>    m_fk_solver;
+    std::unique_ptr<KDL::ChainIkSolverVel_pinv>         m_ik_vel_solver;
+    std::unique_ptr<KDL::ChainIkSolverPos_NR_JL>        m_ik_solver;
 
-    std::unique_ptr<KDL::ChainIkSolverPos_NR_JL>        ik_solver_;
-    std::unique_ptr<KDL::ChainIkSolverVel_pinv>         ik_vel_solver_;
-    std::unique_ptr<KDL::ChainFkSolverPos_recursive>    fk_solver_;
+    // ik solver settings
+    int m_max_iterations;
+    double m_kdl_eps;
 
-    std::vector<bool> continuous_;
-    std::vector<double> min_limits_;
-    std::vector<double> max_limits_;
-    std::vector<double> vel_limits_;
-    std::vector<double> eff_limits_;
-    std::unordered_map<std::string, int> joint_map_;
-    std::unordered_map<std::string, int> link_map_;
+    // temporary storage
+    KDL::JntArray m_jnt_pos_in;
+    KDL::JntArray m_jnt_pos_out;
 
-    void normalizeAngles(KDL::JntArray& angles) const;
-    void normalizeAngles(std::vector<double>& angles) const;
-    bool normalizeAnglesIntoRange(
-        std::vector<double>& angles,
-        const std::vector<double>& angle_mins,
-        const std::vector<double>& angle_maxs) const;
-
-    bool getJointLimits(
-        std::vector<std::string>& joint_names,
-        std::vector<double>& min_limits,
-        std::vector<double>& max_limits,
-        std::vector<bool>& continuous,
-        std::vector<double>& vel_limits,
-        std::vector<double>& acc_limits);
-    bool getJointLimits(
-        std::string joint_name,
-        double& min_limit,
-        double& max_limit,
-        bool& continuous,
-        double& vel_limit,
-        double& acc_limit);
-    bool getCount(int& count, const int& max_count, const int& min_count);
+    // ik search configuration
+    int m_free_angle;
+    double m_search_discretization;
+    double m_timeout;
 };
 
 } // namespace motion

@@ -9,15 +9,7 @@ initial_configuration:
     - { name: r_wrist_flex_joint,     position: -1.05 } #-0.2 }
     - { name: r_wrist_roll_joint,     position: 0.0 }
 
-  multi_dof_joint_state:
-    - frame_id: odom_combined
-      joint_name: torso_lift_link
-      x: -0.05
-      y: 0.0
-      z: 0.959
-      roll: 0.0
-      pitch: 0.0
-      yaw: 0.0
+#  multi_dof_joint_state:
 #    - frame_id: map
 #      child_frame_id: torso_lift_link
 #      x: -0.05

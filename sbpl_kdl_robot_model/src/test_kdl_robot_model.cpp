@@ -36,8 +36,6 @@
 // project includes
 #include <sbpl_kdl_robot_model/kdl_robot_model.h>
 
-namespace smpl = sbpl::motion;
-
 void PrintTransform(char* buff, size_t n, const Eigen::Affine3d& T)
 {
     snprintf(buff, n, "[ [%f, %f, %f, %f], [%f, %f, %f, %f], [%f, %f, %f, %f], [%f, %f, %f, %f] ]",
@@ -55,7 +53,7 @@ int main(int argc, char* argv[])
     sleep(1);
     ros::spinOnce();
 
-    smpl::KDLRobotModel rm;
+    sbpl::motion::KDLRobotModel rm;
 
     std::string urdf;
     nh.param<std::string>("robot_description", urdf, "");
@@ -77,18 +75,15 @@ int main(int argc, char* argv[])
     std::string base_link = "torso_lift_link";
     std::string tip_link = "r_gripper_palm_link";
 
-    if (!rm.init(urdf, planning_joints, base_link, tip_link)) {
+    if (!rm.init(urdf, base_link, tip_link)) {
         ROS_ERROR("Failed to initialize the robot model");
         return 0;
     }
 
-    //rm.setPlanningLink("r_wrist_roll_link");
-    rm.setPlanningLink(tip_link);
-
     ROS_WARN("Robot Model Information");
     rm.printRobotModelInformation();
 
-    smpl::RobotState fka(num_planning_joints, 0.0);
+    sbpl::motion::RobotState fka(num_planning_joints, 0.0);
     fka[0] = -0.5;
     fka[1] = -0.3;
     fka[2] =  0.0;
@@ -99,19 +94,12 @@ int main(int argc, char* argv[])
 
     ROS_WARN("IK-FK Test 3 (kinematics_frame == planning_frame)");
 
-    KDL::Frame T_kinematics_planning;
-    T_kinematics_planning.p.x(-0.05);
-    T_kinematics_planning.p.y(0.0);
-    T_kinematics_planning.p.z(0.801);
-    T_kinematics_planning.M = KDL::Rotation::Quaternion(0.0, 0.0, 0.0, 1.0);
-    rm.setKinematicsToPlanningTransform(T_kinematics_planning, "map");
-
     Eigen::Affine3d pose =
-            Eigen::Translation3d(0.766268, -0.188, 0.790675) * 
+            Eigen::Translation3d(0.766268, -0.188, 0.790675) *
             Eigen::AngleAxisd(0.5, Eigen::Vector3d::UnitX());
 
-    smpl::RobotState seed(num_planning_joints, 0.0);
-    smpl::RobotState ika(num_planning_joints, 0.0);
+    sbpl::motion::RobotState seed(num_planning_joints, 0.0);
+    sbpl::motion::RobotState ika(num_planning_joints, 0.0);
     if (!rm.computeIK(pose, seed, ika)) {
         ROS_ERROR("Failed to compute fK");
         return 0;

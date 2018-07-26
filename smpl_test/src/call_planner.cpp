@@ -223,7 +223,6 @@ bool ReadInitialConfiguration(
         }
 
         if (xlist.size() > 0) {
-            std::cout << xlist << std::endl;
             for (int i = 0; i < xlist.size(); ++i) {
                 state.joint_state.name.push_back(std::string(xlist[i]["name"]));
 
@@ -287,7 +286,6 @@ struct RobotModelConfig
 {
     std::string group_name;
     std::vector<std::string> planning_joints;
-    std::string planning_link;
     std::string kinematics_frame;
     std::string chain_tip_link;
 };
@@ -302,11 +300,6 @@ bool ReadRobotModelConfig(const ros::NodeHandle &nh, RobotModelConfig &config)
     std::string planning_joint_list;
     if (!nh.getParam("planning_joints", planning_joint_list)) {
         ROS_ERROR("Failed to read 'planning_joints' from the param server");
-        return false;
-    }
-
-    if (!nh.getParam("planning_link", config.planning_link)) {
-        ROS_ERROR("Failed to read 'planning_link' from the param server");
         return false;
     }
 
@@ -396,33 +389,19 @@ bool ReadPlannerConfig(const ros::NodeHandle &nh, PlannerConfig &config)
 }
 
 auto SetupRobotModel(const std::string& urdf, const RobotModelConfig &config)
-    -> std::unique_ptr<smpl::KDLRobotModel>
+    -> std::unique_ptr<sbpl::motion::KDLRobotModel>
 {
-    std::unique_ptr<smpl::KDLRobotModel> rm;
-
     if (config.kinematics_frame.empty() || config.chain_tip_link.empty()) {
         ROS_ERROR("Failed to retrieve param 'kinematics_frame' or 'chain_tip_link' from the param server");
-        return rm;
+        return NULL;
     }
 
     ROS_INFO("Construct Generic KDL Robot Model");
-    rm.reset(new sbpl::motion::KDLRobotModel);
+    std::unique_ptr<sbpl::motion::KDLRobotModel> rm(new sbpl::motion::KDLRobotModel);
 
-    if (!rm->init(
-            urdf,
-            config.planning_joints,
-            config.kinematics_frame,
-            config.chain_tip_link))
-    {
+    if (!rm->init(urdf, config.kinematics_frame, config.chain_tip_link)) {
         ROS_ERROR("Failed to initialize robot model.");
-        rm.reset();
-        return std::move(rm);
-    }
-
-    if (!rm->setPlanningLink(config.planning_link)) {
-        ROS_ERROR("Failed to set planning link to '%s'", config.planning_link.c_str());
-        rm.reset();
-        return std::move(rm);
+        return NULL;
     }
 
     return std::move(rm);
@@ -503,7 +482,7 @@ int main(int argc, char* argv[])
             max_distance);
 
     ROS_INFO("Create grid");
-    const bool ref_counted = false;
+    auto ref_counted = false;
     sbpl::OccupancyGrid grid(df, ref_counted);
 
     // everyone needs to know the name of the planning frame for reasons...
@@ -565,6 +544,22 @@ int main(int argc, char* argv[])
         ROS_ERROR("Failed to get initial configuration.");
         return 1;
     }
+
+    ROS_INFO("Set reference state in the robot planning model");
+    smpl::urdf::RobotState reference_state;
+    Init(&reference_state, &rm->m_robot_model);
+    for (auto i = 0; i < start_state.joint_state.name.size(); ++i) {
+        auto* var = GetVariable(&rm->m_robot_model, &start_state.joint_state.name[i]);
+        if (var == NULL) {
+            ROS_WARN("Failed to do the thing");
+            continue;
+        }
+        ROS_INFO("Set joint %s to %f", start_state.joint_state.name[i].c_str(), start_state.joint_state.position[i]);
+        SetVariablePosition(&reference_state, var, start_state.joint_state.position[i]);
+    }
+    SetReferenceState(rm.get(), GetVariablePositions(&reference_state));
+
+    ROS_INFO("Set reference state in the collision model");
     if (!scene.SetRobotState(start_state)) {
         ROS_ERROR("Failed to set start state on Collision Space Scene");
         return 1;
@@ -573,18 +568,6 @@ int main(int argc, char* argv[])
     cc.setWorldToModelTransform(Eigen::Affine3d::Identity());
 
     SV_SHOW_INFO(grid.getDistanceFieldVisualization(0.2));
-
-    // The KDL Robot Model must be given the transform from the planning frame
-    // to the kinematics frame, which is assumed to not be a function of the
-    // planning joint variables.
-    geometry_msgs::Transform transform;
-    transform.translation.x = -0.05;
-    transform.translation.y = 0.0;
-    transform.translation.z = 0.959;
-    transform.rotation.w = 1.0;
-    KDL::Frame f;
-    tf::transformMsgToKDL(transform, f);
-    rm->setKinematicsToPlanningTransform(f, "what?");
 
     SV_SHOW_INFO(cc.getCollisionRobotVisualization());
     SV_SHOW_INFO(cc.getCollisionWorldVisualization());
@@ -600,9 +583,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    smpl::PlannerInterface planner(rm.get(), &cc, &grid);
+    sbpl::motion::PlannerInterface planner(rm.get(), &cc, &grid);
 
-    smpl::PlanningParams params;
+    sbpl::motion::PlanningParams params;
     params.planning_frame = planning_frame;
 
     params.planning_link_sphere_radius = 0.02;
@@ -641,7 +624,7 @@ int main(int argc, char* argv[])
     moveit_msgs::MotionPlanRequest req;
     moveit_msgs::MotionPlanResponse res;
 
-    req.allowed_planning_time = 60.0;
+    req.allowed_planning_time = 10.0;
     req.goal_constraints.resize(1);
     FillGoalConstraint(goal, planning_frame, req.goal_constraints[0]);
     req.group_name = robot_config.group_name;

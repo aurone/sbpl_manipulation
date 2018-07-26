@@ -14,5 +14,6 @@
     <depend>orocos_kdl</depend>
     <depend>roscpp</depend>
     <depend>smpl</depend>
+    <depend>smpl_urdf_robot_model</depend>
     <depend>urdf</depend>
 </package>

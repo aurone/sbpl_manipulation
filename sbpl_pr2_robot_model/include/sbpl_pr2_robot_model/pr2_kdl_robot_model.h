@@ -29,25 +29,16 @@
 
 /// \author Benjamin Cohen
 
-#ifndef sbpl_manip_pr2_kdl_robot_model_h
-#define sbpl_manip_pr2_kdl_robot_model_h
+#ifndef SBPL_PR2_ROBOT_MODEL_PR2_KDL_ROBOT_MODEL_H
+#define SBPL_PR2_ROBOT_MODEL_PR2_KDL_ROBOT_MODEL_H
 
 // standard includes
 #include <memory>
 #include <string>
-#include <vector>
 
 // system includes
-#include <kdl/chain.hpp>
-#include <kdl/chainfksolverpos_recursive.hpp>
-#include <kdl/chainiksolverpos_nr_jl.hpp>
-#include <kdl/chainiksolvervel_pinv.hpp>
-#include <kdl/frames.hpp>
-#include <kdl/jntarray.hpp>
 #include <pr2_arm_kinematics/pr2_arm_ik_solver.h>
-#include <ros/console.h>
 #include <sbpl_kdl_robot_model/kdl_robot_model.h>
-#include <urdf/model.h>
 
 // project includes
 #include <sbpl_pr2_robot_model/orientation_solver.h>
@@ -63,15 +54,14 @@ public:
 
     ~PR2KDLRobotModel();
 
-    /// \name Reimplemented Functions from KDLRobotModel
-    ///@{
     bool init(
         const std::string& robot_description,
-        const std::vector<std::string>& planning_joints,
         const std::string& chain_root_link,
         const std::string& chain_tip_link,
-        int free_angle = DEFAULT_FREE_ANGLE_INDEX) override;
+        int free_angle = DEFAULT_FREE_ANGLE_INDEX);
 
+    /// \name Reimplemented Functions from KDLRobotModel
+    ///@{
     bool computeIK(
         const Eigen::Affine3d& pose,
         const RobotState& start,
@@ -88,11 +78,11 @@ private:
 
     std::unique_ptr<pr2_arm_kinematics::PR2ArmIKSolver> pr2_ik_solver_;
 
-    std::unique_ptr<RPYSolver> rpy_solver_;
+    std::unique_ptr<RPYSolver> m_rpy_solver;
 
-    std::string forearm_roll_link_name_;
-    std::string wrist_pitch_joint_name_;
-    std::string end_effector_link_name_;
+    std::string m_forearm_roll_link_name;
+    std::string m_wrist_pitch_joint_name;
+    std::string m_end_effector_link_name;
 };
 
 } // namespace motion

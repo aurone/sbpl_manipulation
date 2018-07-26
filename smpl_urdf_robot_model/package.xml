@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>smpl_urdf_robot_model</name>
+    <version>0.0.0</version>
+    <description>The smpl_urdf_robot_model package</description>
+    <author email="andrew.dornbush@gmail.com">Andrew Dornbush</author>
+    <maintainer email="andrew.dornbush@gmail.com">Andrew Dornbush</maintainer>
+    <license>BSD</license>
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>eigen</build_depend>
+    <build_depend>liburdfdom-headers-dev</build_depend>
+
+    <depend>liburdfdom-dev</depend>
+    <depend>smpl</depend>
+    <depend>smpl_ros</depend>
+</package>
