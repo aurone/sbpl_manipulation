@@ -41,6 +41,9 @@
 #include <leatherman/utils.h>
 #include <moveit_msgs/GetMotionPlan.h>
 #include <moveit_msgs/PlanningScene.h>
+#include <moveit_planners_sbpl/planner/moveit_robot_model.h>
+#include <moveit/robot_model_loader/robot_model_loader.h>
+#include <moveit/robot_model/robot_model.h>
 #include <ros/ros.h>
 #include <kdl_conversions/kdl_msg.h>
 #include <smpl/ros/planner_interface.h>
@@ -388,7 +391,7 @@ bool ReadPlannerConfig(const ros::NodeHandle &nh, PlannerConfig &config)
     return true;
 }
 
-auto SetupRobotModel(const std::string& urdf, const RobotModelConfig &config)
+auto SetupKDLRobotModel(const std::string& urdf, const RobotModelConfig &config)
     -> std::unique_ptr<sbpl::motion::KDLRobotModel>
 {
     if (config.kinematics_frame.empty() || config.chain_tip_link.empty()) {
@@ -403,6 +406,56 @@ auto SetupRobotModel(const std::string& urdf, const RobotModelConfig &config)
         ROS_ERROR("Failed to initialize robot model.");
         return NULL;
     }
+
+    return std::move(rm);
+}
+
+auto SetupMoveItRobotModel(const std::string& urdf, const RobotModelConfig &config)
+    -> std::unique_ptr<sbpl_interface::MoveItRobotModel>
+{
+    std::unique_ptr<sbpl_interface::MoveItRobotModel> rm;
+
+    if (config.kinematics_frame.empty() || config.chain_tip_link.empty()) {
+        ROS_ERROR("Failed to retrieve param 'kinematics_frame' or 'chain_tip_link' from the param server");
+        return rm;
+    }
+
+    ROS_INFO("Construct Generic MoveIt Robot Model");
+    rm.reset(new sbpl_interface::MoveItRobotModel);
+
+    ROS_INFO("Initialize PR2 MoveIt Robot Model");
+
+    auto robot_loader = boost::make_shared<robot_model_loader::RobotModelLoader>(
+            "robot_description", true);
+    auto robot_model = robot_loader->getModel();
+    if (!robot_model) {
+        ROS_ERROR("Robot model is null");
+        return false;
+    }
+
+    std::vector<std::string> redundant_joints;
+    redundant_joints.push_back("r_shoulder_pan_joint");
+    auto joint_group = robot_model->getJointModelGroup("right_arm");
+    joint_group->setRedundantJoints(redundant_joints);
+
+    if (!rm->init(
+            robot_model,
+            "right_arm"))
+    {
+        ROS_ERROR("Failed to initialize robot model.");
+        rm.reset();
+        return std::move(rm);
+    }
+
+    if (!rm->setPlanningLink(config.chain_tip_link)) {
+        ROS_ERROR("Failed to set planning link to '%s'", config.chain_tip_link.c_str());
+        rm.reset();
+        return std::move(rm);
+    }
+
+    planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
+    rm->setPlanningScene(planning_scene);
+    rm->setPlanningFrame(planning_scene->getPlanningFrame());
 
     return std::move(rm);
 }
@@ -451,7 +504,7 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    auto rm = SetupRobotModel(urdf, robot_config);
+    auto rm = SetupMoveItRobotModel(urdf, robot_config);
     if (!rm) {
         ROS_ERROR("Failed to set up Robot Model");
         return 1;
@@ -544,22 +597,6 @@ int main(int argc, char* argv[])
         ROS_ERROR("Failed to get initial configuration.");
         return 1;
     }
-
-    ROS_INFO("Set reference state in the robot planning model");
-    smpl::urdf::RobotState reference_state;
-    Init(&reference_state, &rm->m_robot_model);
-    for (auto i = 0; i < start_state.joint_state.name.size(); ++i) {
-        auto* var = GetVariable(&rm->m_robot_model, &start_state.joint_state.name[i]);
-        if (var == NULL) {
-            ROS_WARN("Failed to do the thing");
-            continue;
-        }
-        ROS_INFO("Set joint %s to %f", start_state.joint_state.name[i].c_str(), start_state.joint_state.position[i]);
-        SetVariablePosition(&reference_state, var, start_state.joint_state.position[i]);
-    }
-    SetReferenceState(rm.get(), GetVariablePositions(&reference_state));
-
-    ROS_INFO("Set reference state in the collision model");
     if (!scene.SetRobotState(start_state)) {
         ROS_ERROR("Failed to set start state on Collision Space Scene");
         return 1;
@@ -569,9 +606,25 @@ int main(int argc, char* argv[])
 
     SV_SHOW_INFO(grid.getDistanceFieldVisualization(0.2));
 
+#ifdef KDL
+    // The KDL Robot Model must be given the transform from the planning frame
+    // to the kinematics frame, which is assumed to not be a function of the
+    // planning joint variables.
+    geometry_msgs::Transform transform;
+    transform.translation.x = -0.05;
+    transform.translation.y = 0.0;
+    transform.translation.z = 0.959;
+    transform.rotation.w = 1.0;
+    KDL::Frame f;
+    tf::transformMsgToKDL(transform, f);
+    rm->setKinematicsToPlanningTransform(f, "what?");
+#endif
+
     SV_SHOW_INFO(cc.getCollisionRobotVisualization());
     SV_SHOW_INFO(cc.getCollisionWorldVisualization());
     SV_SHOW_INFO(cc.getOccupiedVoxelsVisualization());
+
+    // return 0;
 
     ///////////////////
     // Planner Setup //
@@ -583,9 +636,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    sbpl::motion::PlannerInterface planner(rm.get(), &cc, &grid);
+    smpl::PlannerInterface planner(rm.get(), &cc, &grid);
 
-    sbpl::motion::PlanningParams params;
+    smpl::PlanningParams params;
     params.planning_frame = planning_frame;
 
     params.planning_link_sphere_radius = 0.02;
@@ -624,15 +677,26 @@ int main(int argc, char* argv[])
     moveit_msgs::MotionPlanRequest req;
     moveit_msgs::MotionPlanResponse res;
 
-    req.allowed_planning_time = 10.0;
+    req.allowed_planning_time = 60.0;
     req.goal_constraints.resize(1);
     FillGoalConstraint(goal, planning_frame, req.goal_constraints[0]);
+
+#if 0
+    // fill goal state
+    moveit_msgs::RobotState goal_state;
+    if (!ReadGoalConfiguration(ph, goal_state)) {
+        ROS_ERROR("Failed to get goal configuration.");
+        return 0;
+    }
+
+    FillGoalJointConstraint(goal_state, req.goal_constraints[0]);
+#endif
     req.group_name = robot_config.group_name;
     req.max_acceleration_scaling_factor = 1.0;
     req.max_velocity_scaling_factor = 1.0;
     req.num_planning_attempts = 1;
 //    req.path_constraints;
-    req.planner_id = "arastar.bfs.manip";
+    req.planner_id = "arastar.workspace_distance.workspace";
     req.start_state = start_state;
 //    req.trajectory_constraints;
 //    req.workspace_parameters;
@@ -641,7 +705,9 @@ int main(int argc, char* argv[])
     ROS_INFO("Calling solve...");
     moveit_msgs::PlanningScene planning_scene;
     planning_scene.robot_state = start_state;
-    if (!planner.solve(planning_scene, req, res)) {
+    bool query = false;
+    // bool query = true;
+    if (!planner.solveZero(planning_scene, req, res, query)) {
         ROS_ERROR("Failed to plan.");
         return 1;
     }
@@ -649,27 +715,30 @@ int main(int argc, char* argv[])
     ///////////////////////////////////
     // Visualizations and Statistics //
     ///////////////////////////////////
-
+#if 0
     std::map<std::string, double> planning_stats = planner.getPlannerStats();
 
     ROS_INFO("Planning statistics");
     for (const auto& entry : planning_stats) {
         ROS_INFO("    %s: %0.3f", entry.first.c_str(), entry.second);
     }
+#endif
 
-    ROS_INFO("Animate path");
-
-    size_t pidx = 0;
-    while (ros::ok()) {
-        auto& point = res.trajectory.joint_trajectory.points[pidx];
-        auto markers = cc.getCollisionRobotVisualization(point.positions);
-        for (auto& m : markers.markers) {
-            m.ns = "path_animation";
+    if (query) {
+        ROS_INFO("Animate path");
+    
+        size_t pidx = 0;
+        while (ros::ok()) {
+            auto& point = res.trajectory.joint_trajectory.points[pidx];
+            auto markers = cc.getCollisionRobotVisualization(point.positions);
+            for (auto& m : markers.markers) {
+                m.ns = "path_animation";
+            }
+            SV_SHOW_INFO(markers);
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            pidx++;
+            pidx %= res.trajectory.joint_trajectory.points.size();
         }
-        SV_SHOW_INFO(markers);
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        pidx++;
-        pidx %= res.trajectory.joint_trajectory.points.size();
     }
 
     return 0;
