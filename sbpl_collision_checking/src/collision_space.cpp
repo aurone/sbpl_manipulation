@@ -200,7 +200,7 @@ bool CollisionSpace::removeShapes(const CollisionObject* object)
 bool CollisionSpace::attachObject(
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms,
+    const Isometry3dVector& transforms,
     const std::string& link_name)
 {
     return m_abcm->attachBody(id, shapes, transforms, link_name);

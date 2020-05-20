@@ -26,7 +26,7 @@ auto ConvertCollisionObjectToObject(const moveit_msgs::CollisionObject& co)
             return nullptr;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o->shapes_.push_back(sp);
@@ -43,7 +43,7 @@ auto ConvertCollisionObjectToObject(const moveit_msgs::CollisionObject& co)
             return nullptr;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o->shapes_.push_back(sp);
@@ -60,7 +60,7 @@ auto ConvertCollisionObjectToObject(const moveit_msgs::CollisionObject& co)
             return nullptr;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o->shapes_.push_back(sp);
@@ -90,7 +90,7 @@ auto ConvertOctomapToObject(const octomap_msgs::OctomapWithPose& octomap)
     decltype(shapes::OcTree().octree) ot(tree);         // snap into a shared_ptr
     shapes::ShapeConstPtr sp(new shapes::OcTree(ot));   // snap into a shape
 
-    Eigen::Affine3d transform;
+    Eigen::Isometry3d transform;
     tf::poseMsgToEigen(octomap.origin, transform);
 
     // construct the object

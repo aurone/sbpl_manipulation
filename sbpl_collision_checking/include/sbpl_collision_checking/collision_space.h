@@ -116,7 +116,7 @@ public:
     bool attachObject(
         const std::string& id,
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms,
+        const Isometry3dVector& transforms,
         const std::string& link_name);
 
     bool detachObject(const std::string& id);
