@@ -55,6 +55,7 @@
 
 #include "collision_space_scene.h"
 #include "pr2_allowed_collision_pairs.h"
+#include "franka_allowed_collision_pairs.h"
 
 void FillGoalConstraint(
     const std::vector<double>& pose,
@@ -514,6 +515,14 @@ int main(int argc, char* argv[])
     if (cc.robotCollisionModel()->name() == "pr2") {
         smpl::collision::AllowedCollisionMatrix acm;
         for (auto& pair : PR2AllowedCollisionPairs) {
+            acm.setEntry(pair.first, pair.second, true);
+        }
+        cc.setAllowedCollisionMatrix(acm);
+    }
+
+    if (cc.robotCollisionModel()->name() == "panda") {
+        smpl::collision::AllowedCollisionMatrix acm;
+        for (auto& pair : FrankaAllowedCollisionPairs) {
             acm.setEntry(pair.first, pair.second, true);
         }
         cc.setAllowedCollisionMatrix(acm);

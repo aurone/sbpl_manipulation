@@ -1,0 +1,48 @@
+<launch>
+    <arg name="debug" default="false"/>
+
+    <param name="robot_description" command="$(find xacro)/xacro.py '$(find franka_description)/robots/panda_arm_hand.urdf.xacro'"/>
+
+    <arg unless="$(arg debug)" name="launch-prefix" value=""/>
+    <arg     if="$(arg debug)" name="launch-prefix" value="gdb ex --args"/>
+
+    <node pkg="smpl_test" type="callPlanner" name="call_planner"
+            launch-prefix="$(arg launch-prefix)">
+        <param name="planning_frame" value="odom_combined"/>
+
+        <!-- 1. robot model (for planning) -->
+        <rosparam param="robot_model">
+            group_name: manipulator
+            planning_joints:
+                panda_joint1
+                panda_joint2
+                panda_joint3
+                panda_joint4
+                panda_joint5
+                panda_joint6
+                panda_joint7
+            kinematics_frame:
+                panda_link0
+            chain_tip_link:
+                panda_hand
+        </rosparam>
+
+        <!-- collision checking -->
+        <rosparam command="load" file="$(find sbpl_collision_checking_test)/config/collision_model_franka.yaml"/>
+
+        <!-- planner params -->
+        <rosparam command="load" file="$(find smpl_test)/config/franka_arm.yaml"/>
+        <param name="planning/mprim_filename" value="$(find smpl_test)/config/franka.mprim"/>
+        <param name="allowed_planning_time" value="15.0"/>
+
+        <!-- 2. scene -->
+        <!-- 2.1 robot state -->
+        <rosparam command="load" file="$(find smpl_test)/experiments/franka_goal.yaml"/>
+
+        <!-- 2.2 world state -->
+        <param name="object_filename" value="$(find smpl_test)/env/tabletop.env"/>
+
+        <!-- 3. scenario -->
+    </node>
+</launch>
+

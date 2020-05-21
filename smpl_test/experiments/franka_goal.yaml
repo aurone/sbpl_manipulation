@@ -1,0 +1,35 @@
+initial_configuration:
+  joint_state:
+    - { name: panda_joint1,       position: 0.0 }
+    - { name: panda_joint2,   position: 0.0 }
+    - { name: panda_joint3,  position: 0.0 }
+    - { name: panda_joint4, position: -1.0 }
+    - { name: panda_joint5,     position: 0.0 } #-0.2 }
+    - { name: panda_joint6,   position: 1.5 }
+    - { name: panda_joint7,     position: 0.0 } #-0.2 }
+
+#  multi_dof_joint_state:
+#    - frame_id: map
+#      child_frame_id: torso_lift_link
+#      x: -0.05
+#      y: 1.0
+#      z: 0.789675
+#      roll: 0.0
+#      pitch: 0.0
+#      yaw: 0.0
+#    - frame_id: base_footprint
+#      child_frame_id: torso_lift_link
+#      x: -0.05
+#      y: 0.0
+#      z: 0.789675
+#      roll: 0.0
+#      pitch: 0.0
+#      yaw: 0.0
+
+goal:
+  x: 0.4
+  y: -0.2
+  z: 0.36
+  roll: 0.0
+  pitch: 0.0
+  yaw: 0.0

@@ -1,0 +1,134 @@
+# occupancy grid information
+world_collision_model:
+  size_x: 1.9
+  size_y: 2.4
+  size_z: 3.0
+  origin_x: -0.4
+  origin_y: -1.2
+  origin_z: 0.0
+  res_m: 0.02
+  max_distance_m: 0.2
+
+robot_collision_model:
+  world_joint:
+    name: world_joint
+    type: planar # fixed, floating
+  voxels_models:
+    - { link_name: panda_link0, res: 0.01 }
+    - { link_name: panda_link1, res: 0.01 }
+    - { link_name: panda_link2, res: 0.01 }
+    - { link_name: panda_link3, res: 0.01 }
+    - { link_name: panda_link4, res: 0.01 }
+    - { link_name: panda_link5, res: 0.01 }
+    - { link_name: panda_link6, res: 0.01 }
+    - { link_name: panda_link7, res: 0.01 }
+    - { link_name: panda_hand, res: 0.01 }
+    # - { link_name: panda_leftfinger, res: 0.01 }
+    # - { link_name: panda_rightfinger, res: 0.01 }
+  spheres_models:
+    - link_name: panda_link0
+      auto: false
+      spheres:
+        - { name: l00, x: 0.0, y:  0.000, z:  0.050, radius: 0.080, priority: 5 }
+    - link_name: panda_link1
+      auto: false
+      spheres:
+        - { name: l10, x: 0.0, y:  -0.080, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l11, x: 0.0, y:  -0.030, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l12, x: 0.0, y:  0.000, z:  -0.120, radius: 0.060, priority: 5 }
+        - { name: l13, x: 0.0, y:  0.000, z:  -0.170, radius: 0.060, priority: 5 }
+    - link_name: panda_link2
+      auto: false
+      spheres:
+        - { name: l20, x: 0.0, y:  0.000, z:  0.030, radius: 0.060, priority: 5 }
+        - { name: l21, x: 0.0, y:  0.000, z:  0.080, radius: 0.060, priority: 5 }
+        - { name: l22, x: 0.0, y:  -0.120, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l23, x: 0.0, y:  -0.170, z:  0.000, radius: 0.060, priority: 5 }
+    - link_name: panda_link3
+      auto: false
+      spheres:
+        - { name: l30, x: 0.0, y:  0.000, z:  -0.06, radius: 0.050, priority: 5 }
+        - { name: l31, x: 0.0, y:  0.000, z:  -0.100, radius: 0.060, priority: 5 }     
+        - { name: l32, x: 0.08, y:  0.060, z:  0.000, radius: 0.055, priority: 5 }
+        - { name: l33, x: 0.08, y:  0.020, z:  0.000, radius: 0.055, priority: 5 }
+    - link_name: panda_link4
+      auto: false
+      spheres:
+        - { name: l40, x: 0.0, y:  0.000, z:  0.020, radius: 0.055, priority: 5 }
+        - { name: l41, x: 0.0, y:  0.000, z:  0.060, radius: 0.055, priority: 5 }
+        - { name: l42, x: -0.08, y:  0.095, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l43, x: -0.08, y:  0.060, z:  0.000, radius: 0.055, priority: 5 }
+    - link_name: panda_link5
+      auto: false
+      spheres:
+        - { name: l500, x: 0.0, y:  0.055, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l501, x: 0.0, y:  0.075, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l502, x: 0.0, y:  0.000, z:  -0.22, radius: 0.060, priority: 5 }
+        - { name: l503, x: 0.0, y:  0.05, z:  -0.18, radius: 0.050, priority: 5 }
+        # small spheres
+        - { name: l504, x: 0.01, y:  0.08, z:  -0.14, radius: 0.025, priority: 5 }
+        - { name: l505, x: 0.01, y:  0.085, z:  -0.11, radius: 0.025, priority: 5 }
+        - { name: l506, x: 0.01, y:  0.09, z:  -0.08, radius: 0.025, priority: 5 }
+        - { name: l507, x: 0.01, y:  0.095, z:  -0.05, radius: 0.025, priority: 5 }
+        - { name: l508, x: -0.01, y:  0.08, z:  -0.14, radius: 0.025, priority: 5 }
+        - { name: l509, x: -0.01, y:  0.085, z:  -0.11, radius: 0.025, priority: 5 }
+        - { name: l510, x: -0.01, y:  0.09, z:  -0.08, radius: 0.025, priority: 5 }
+        - { name: l511, x: -0.01, y:  0.095, z:  -0.05, radius: 0.025, priority: 5 }
+    - link_name: panda_link6
+      auto: false
+      spheres:
+        - { name: l60, x: 0.0, y:  0.000, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l61, x: 0.08, y:  0.030, z:  0.000, radius: 0.060, priority: 5 }
+        - { name: l62, x: 0.08, y:  -0.010, z:  0.000, radius: 0.060, priority: 5 }
+    - link_name: panda_link7
+      auto: false
+      spheres:
+        - { name: l70, x: 0.0, y:  0.000, z:  0.070, radius: 0.05, priority: 5 }
+        # small spheres
+        - { name: l71, x: 0.02, y:  0.04, z:  0.08, radius: 0.025, priority: 5 }
+        - { name: l72, x: 0.04, y:  0.02, z:  0.08, radius: 0.025, priority: 5 }
+        - { name: l73, x: 0.04, y:  0.06, z:  0.085, radius: 0.02, priority: 5 }
+        - { name: l74, x: 0.06, y:  0.04, z:  0.085, radius: 0.02, priority: 5 }
+    - link_name: panda_hand
+      auto: false
+      spheres:
+        - { name: h00, x: 0.00, y:  -0.075, z:  0.01, radius: 0.028, priority: 5 }
+        - { name: h01, x: 0.00, y:  -0.045, z:  0.01, radius: 0.028, priority: 5 }
+        - { name: h02, x: 0.00, y:  -0.015, z:  0.01, radius: 0.028, priority: 5 }
+        - { name: h03, x: 0.00, y:  0.015, z:  0.01, radius: 0.028, priority: 5 }
+        - { name: h04, x: 0.00, y:  0.045, z:  0.01, radius: 0.028, priority: 5 }
+        - { name: h05, x: 0.00, y:  0.075, z:  0.01, radius: 0.028, priority: 5 }
+        ##
+        - { name: h10, x: 0.00, y:  -0.075, z:  0.03, radius: 0.026, priority: 5 }
+        - { name: h11, x: 0.00, y:  -0.045, z:  0.03, radius: 0.026, priority: 5 }
+        - { name: h12, x: 0.00, y:  -0.015, z:  0.03, radius: 0.026, priority: 5 }
+        - { name: h13, x: 0.00, y:   0.015, z:  0.03, radius: 0.026, priority: 5 }
+        - { name: h14, x: 0.00, y:   0.045, z:  0.03, radius: 0.026, priority: 5 }
+        - { name: h15, x: 0.00, y:   0.075, z:  0.03, radius: 0.026, priority: 5 }
+        ##
+        - { name: h20, x: 0.00, y:  -0.075, z:  0.05, radius: 0.024, priority: 5 }
+        - { name: h21, x: 0.00, y:  -0.045, z:  0.05, radius: 0.024, priority: 5 }
+        - { name: h22, x: 0.00, y:  -0.015, z:  0.05, radius: 0.024, priority: 5 }
+        - { name: h23, x: 0.00, y:   0.015, z:  0.05, radius: 0.024, priority: 5 }
+        - { name: h24, x: 0.00, y:   0.045, z:  0.05, radius: 0.024, priority: 5 }
+        - { name: h25, x: 0.00, y:   0.075, z:  0.05, radius: 0.024, priority: 5 }
+
+#  voxels_models:
+#    - link_name: world
+  collision_groups:
+    - name: manipulator
+      # chains:
+      #   - base: panda_link0
+      #     tip: panda_link6
+      links:
+        - name: panda_link0
+        - name: panda_link1
+        - name: panda_link2
+        - name: panda_link3
+        - name: panda_link4
+        - name: panda_link5
+        - name: panda_link6
+        - name: panda_link7
+        - name: panda_hand
+# allowed_collisions:
+#   - { sphere1: l70, sphere2: l81 }
