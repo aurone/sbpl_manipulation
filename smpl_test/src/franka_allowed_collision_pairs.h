@@ -13,7 +13,10 @@ const std::pair<const char*, const char*> FrankaAllowedCollisionPairs[] =
 	{ "panda_link4", "panda_link5" },
 	{ "panda_link5", "panda_link6" },
 	{ "panda_link6", "panda_link7" },
-	{ "panda_link7", "panda_hand" }
+	{ "panda_link7", "panda_hand" },
+	{ "panda_hand", "panda_leftfinger"},
+	{ "panda_hand", "panda_rightfinger"},
+	{"panda_leftfinger", "panda_rightfinger"}
 };
 
 #endif

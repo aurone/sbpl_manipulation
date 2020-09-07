@@ -11,8 +11,8 @@ world_collision_model:
 
 robot_collision_model:
   world_joint:
-    name: world_joint
-    type: planar # fixed, floating
+    name: map
+    type: floating # fixed, floating
   voxels_models:
     - { link_name: panda_link0, res: 0.01 }
     - { link_name: panda_link1, res: 0.01 }
@@ -23,8 +23,8 @@ robot_collision_model:
     - { link_name: panda_link6, res: 0.01 }
     - { link_name: panda_link7, res: 0.01 }
     - { link_name: panda_hand, res: 0.01 }
-    # - { link_name: panda_leftfinger, res: 0.01 }
-    # - { link_name: panda_rightfinger, res: 0.01 }
+    - { link_name: panda_leftfinger, res: 0.01 }
+    - { link_name: panda_rightfinger, res: 0.01 }
   spheres_models:
     - link_name: panda_link0
       auto: false
@@ -112,7 +112,26 @@ robot_collision_model:
         - { name: h23, x: 0.00, y:   0.015, z:  0.05, radius: 0.024, priority: 5 }
         - { name: h24, x: 0.00, y:   0.045, z:  0.05, radius: 0.024, priority: 5 }
         - { name: h25, x: 0.00, y:   0.075, z:  0.05, radius: 0.024, priority: 5 }
-
+    # - link_name: panda_rightfinger
+    #   auto: true
+    #   radius: 0.01
+    # - link_name: panda_leftfinger
+    #   auto: true
+    #   radius: 0.01
+    - link_name: panda_rightfinger
+      auto: false
+      spheres:
+        - { name: rf01, x: 0.00, y:  -0.02, z:  0.02, radius: 0.01, priority: 5 }
+        - { name: rf02, x: 0.00, y:  -0.02, z:  0.03, radius: 0.01, priority: 5 }
+        - { name: rf03, x: 0.00, y:  -0.02, z:  0.04, radius: 0.01, priority: 5 }
+        - { name: rf04, x: 0.00, y:  -0.02, z:  0.05, radius: 0.01, priority: 5 }
+    - link_name: panda_leftfinger
+      auto: false
+      spheres:
+        - { name: lf01, x: 0.00, y:  0.02, z:  0.02, radius: 0.01, priority: 5 }
+        - { name: lf02, x: 0.00, y:  0.02, z:  0.03, radius: 0.01, priority: 5 }
+        - { name: lf03, x: 0.00, y:  0.02, z:  0.04, radius: 0.01, priority: 5 }
+        - { name: lf04, x: 0.00, y:  0.02, z:  0.05, radius: 0.01, priority: 5 }
 #  voxels_models:
 #    - link_name: world
   collision_groups:
@@ -130,5 +149,7 @@ robot_collision_model:
         - name: panda_link6
         - name: panda_link7
         - name: panda_hand
+        - name: panda_rightfinger
+        - name: panda_leftfinger
 # allowed_collisions:
 #   - { sphere1: l70, sphere2: l81 }
