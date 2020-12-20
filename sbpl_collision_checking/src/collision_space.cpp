@@ -256,6 +256,17 @@ auto CollisionSpace::getCollisionRobotVisualization()
     for (auto& m : markers.markers) {
         m.header.frame_id = m_grid->getReferenceFrame();
     }
+
+    // Add the attached collision object spheres
+    for (int ssidx : m_abcs->groupSpheresStateIndices(m_gidx)) {
+        m_abcs->updateSphereStates(ssidx);
+    }
+    auto markers_attached = m_abcs->getVisualization(m_gidx);
+    for (auto& m : markers_attached.markers) {
+        m.header.frame_id = m_grid->getReferenceFrame();
+        markers.markers.push_back(m);
+    }
+
     return markers;
 }
 
