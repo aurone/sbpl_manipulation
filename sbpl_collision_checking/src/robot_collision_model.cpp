@@ -140,11 +140,11 @@ bool RobotCollisionModel::initRobotModel(
 
     // breadth-first traversal of all links in the robot
 
-    std::stack<boost::shared_ptr<const ::urdf::Link>> links;
+    std::stack<std::shared_ptr<const ::urdf::Link>> links;
     links.push(root_link);
 
     while (!links.empty()) {
-        boost::shared_ptr<const ::urdf::Link> link;
+        std::shared_ptr<const ::urdf::Link> link;
         link = links.top();
         links.pop();
 

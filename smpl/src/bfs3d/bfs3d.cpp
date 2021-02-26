@@ -179,6 +179,10 @@ void BFS_3D::run(int x, int y, int z)
 
     m_running = true;
 
+    if (m_search_thread.joinable()) {
+        m_search_thread.join();
+    }
+
     // fire off background thread to compute bfs
     m_search_thread = std::thread([&]()
     {

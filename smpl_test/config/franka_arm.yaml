@@ -1,0 +1,17 @@
+planning:
+  discretization:
+    panda_joint1    0.017453292519943295
+    panda_joint2    0.017453292519943295
+    panda_joint3    0.017453292519943295
+    panda_joint4    0.017453292519943295
+    panda_joint5    0.017453292519943295
+    panda_joint6    0.017453292519943295
+    panda_joint7    0.017453292519943295
+  use_xyz_snap_mprim: false
+  use_rpy_snap_mprim: false
+  use_xyzrpy_snap_mprim: true
+  use_short_dist_mprims: true
+  xyz_snap_dist_thresh: 0.2
+  rpy_snap_dist_thresh: 0.0
+  xyzrpy_snap_dist_thresh: 0.0
+  short_dist_mprims_thresh: 0.4

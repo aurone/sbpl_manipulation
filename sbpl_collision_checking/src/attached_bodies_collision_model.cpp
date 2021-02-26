@@ -70,7 +70,7 @@ AttachedBodiesCollisionModel::AttachedBodiesCollisionModel(
 bool AttachedBodiesCollisionModel::attachBody(
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms,
+    const Isometry3dVector& transforms,
     const std::string& link_name,
     bool create_voxels_model,
     bool create_spheres_model)
@@ -203,7 +203,7 @@ CollisionSpheresModel* AttachedBodiesCollisionModel::createSpheresModel(
     int abidx,
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms)
+    const Isometry3dVector& transforms)
 {
     ROS_DEBUG_NAMED(ABM_LOGGER, "  Generate spheres model");
 
@@ -233,7 +233,7 @@ CollisionVoxelsModel* AttachedBodiesCollisionModel::createVoxelsModel(
     int abidx,
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms)
+    const Isometry3dVector& transforms)
 {
     ROS_DEBUG_NAMED(ABM_LOGGER, "  Generate voxels model");
 
@@ -264,7 +264,7 @@ CollisionVoxelsModel* AttachedBodiesCollisionModel::createVoxelsModel(
 void AttachedBodiesCollisionModel::generateSpheresModel(
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms,
+    const Isometry3dVector& transforms,
     CollisionSpheresModelConfig& spheres_model)
 {
     assert(std::all_of(shapes.begin(), shapes.end(),
@@ -315,7 +315,7 @@ void AttachedBodiesCollisionModel::generateSpheresModel(
 void AttachedBodiesCollisionModel::generateVoxelsModel(
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms,
+    const Isometry3dVector& transforms,
     CollisionVoxelModelConfig& voxels_model)
 {
     ROS_DEBUG_NAMED(ABM_LOGGER, "Generate voxels model configuration");
@@ -324,7 +324,7 @@ void AttachedBodiesCollisionModel::generateVoxelsModel(
 
 bool AttachedBodiesCollisionModel::voxelizeAttachedBody(
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms,
+    const Isometry3dVector& transforms,
     CollisionVoxelsModel& model) const
 {
     if (shapes.size() != transforms.size()) {

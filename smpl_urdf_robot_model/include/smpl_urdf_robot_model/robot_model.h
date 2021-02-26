@@ -3,6 +3,7 @@
 
 // standard includes
 #include <cstddef>
+#include <vector>
 
 // system includes
 #include <smpl/spatial.h>

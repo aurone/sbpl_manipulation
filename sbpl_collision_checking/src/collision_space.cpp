@@ -200,7 +200,7 @@ bool CollisionSpace::removeShapes(const CollisionObject* object)
 bool CollisionSpace::attachObject(
     const std::string& id,
     const std::vector<shapes::ShapeConstPtr>& shapes,
-    const Affine3dVector& transforms,
+    const Isometry3dVector& transforms,
     const std::string& link_name)
 {
     return m_abcm->attachBody(id, shapes, transforms, link_name);
@@ -256,6 +256,17 @@ auto CollisionSpace::getCollisionRobotVisualization()
     for (auto& m : markers.markers) {
         m.header.frame_id = m_grid->getReferenceFrame();
     }
+
+    // Add the attached collision object spheres
+    for (int ssidx : m_abcs->groupSpheresStateIndices(m_gidx)) {
+        m_abcs->updateSphereStates(ssidx);
+    }
+    auto markers_attached = m_abcs->getVisualization(m_gidx);
+    for (auto& m : markers_attached.markers) {
+        m.header.frame_id = m_grid->getReferenceFrame();
+        markers.markers.push_back(m);
+    }
+
     return markers;
 }
 

@@ -24,7 +24,7 @@ find_package(catkin
         visualization_msgs)
 
 find_package(orocos_kdl REQUIRED)
-find_package(OMPL REQUIRED)
+find_package(ompl REQUIRED)
 find_package(smpl REQUIRED)
 
 catkin_package()
@@ -39,9 +39,9 @@ include_directories(SYSTEM ${orocos_kdl_INCLUDE_DIRS})
 add_executable(callPlanner src/call_planner.cpp src/collision_space_scene.cpp)
 target_link_libraries(callPlanner ${catkin_LIBRARIES} smpl::smpl)
 
-add_executable(call_ompl_planner src/call_ompl_planner.cpp src/collision_space_scene.cpp)
-target_include_directories(call_ompl_planner SYSTEM PRIVATE ${OMPL_INCLUDE_DIRS})
-target_link_libraries(call_ompl_planner ${catkin_LIBRARIES} ${OMPL_LIBRARIES} smpl::smpl)
+#add_executable(call_ompl_planner src/call_ompl_planner.cpp src/collision_space_scene.cpp)
+#target_include_directories(call_ompl_planner SYSTEM PRIVATE ${OMPL_INCLUDE_DIRS})
+#target_link_libraries(call_ompl_planner ${catkin_LIBRARIES} ${OMPL_LIBRARIES} smpl::smpl)
 
 add_executable(occupancy_grid_test src/occupancy_grid_test.cpp)
 target_link_libraries(occupancy_grid_test ${catkin_LIBRARIES} smpl::smpl)
@@ -73,8 +73,8 @@ target_link_libraries(xytheta smpl::smpl)
 add_executable(debug_vis_demo src/debug_vis_demo.cpp)
 target_link_libraries(debug_vis_demo ${catkin_LIBRARIES} smpl::smpl)
 
-add_executable(distance_map_test src/distance_map_test.cpp)
-target_link_libraries(distance_map_test ${catkin_LIBRARIES} ${Boost_LIBRARIES} smpl::smpl)
+#add_executable(distance_map_test src/distance_map_test.cpp)
+#target_link_libraries(distance_map_test ${catkin_LIBRARIES} ${Boost_LIBRARIES} smpl::smpl)
 
 install(
     TARGETS callPlanner

@@ -59,7 +59,7 @@ public:
     bool attachBody(
         const std::string& id,
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms,
+        const Isometry3dVector& transforms,
         const std::string& link_name,
         bool create_voxels_model = true,
         bool create_spheres_model = true);
@@ -143,29 +143,29 @@ private:
         int abidx,
         const std::string& id,
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms);
+        const Isometry3dVector& transforms);
 
     CollisionVoxelsModel* createVoxelsModel(
         int abidx,
         const std::string& id,
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms);
+        const Isometry3dVector& transforms);
 
     void generateSpheresModel(
         const std::string& id,
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms,
+        const Isometry3dVector& transforms,
         CollisionSpheresModelConfig& spheres_model);
 
     void generateVoxelsModel(
         const std::string& id,
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms,
+        const Isometry3dVector& transforms,
         CollisionVoxelModelConfig& voxels_models);
 
     bool voxelizeAttachedBody(
         const std::vector<shapes::ShapeConstPtr>& shapes,
-        const Affine3dVector& transforms,
+        const Isometry3dVector& transforms,
         CollisionVoxelsModel& model) const;
 };
 

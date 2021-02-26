@@ -253,7 +253,7 @@ void ConvertCollisionObjectMsgToWorldObject(
             continue;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o.shapes_.push_back(sp);
@@ -270,7 +270,7 @@ void ConvertCollisionObjectMsgToWorldObject(
             continue;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o.shapes_.push_back(sp);
@@ -287,7 +287,7 @@ void ConvertCollisionObjectMsgToWorldObject(
             continue;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o.shapes_.push_back(sp);
@@ -324,7 +324,7 @@ void ConvertCollisionObjectMsgToCollisionObject(
             continue;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o.shapes.push_back(sp);
@@ -341,7 +341,7 @@ void ConvertCollisionObjectMsgToCollisionObject(
             continue;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o.shapes.push_back(sp);
@@ -358,7 +358,7 @@ void ConvertCollisionObjectMsgToCollisionObject(
             continue;
         }
 
-        Eigen::Affine3d transform;
+        Eigen::Isometry3d transform;
         tf::poseMsgToEigen(pose, transform);
 
         o.shapes.push_back(sp);
