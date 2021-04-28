@@ -75,6 +75,10 @@ bool AttachedBodiesCollisionState::updateVoxelsState(int vsidx)
     }
 
     state.voxels = std::move(new_voxels);
+    
+    if (m_voxels_state_versions.size()<=vsidx)
+        m_voxels_state_versions.resize(vsidx+1);
+
     m_voxels_state_versions[vsidx] = attachedBodyTransformVersion(bidx);
     return true;
 }
